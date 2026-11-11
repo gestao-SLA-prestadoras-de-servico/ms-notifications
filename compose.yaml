@@ -1,0 +1,97 @@
+name: ms-notificacoes
+
+services:
+  ms-notificacoes:
+    build: .
+    environment:
+      SERVER_PORT: 8081
+      DB_URL: jdbc:postgresql://postgres:5432/ms_notificacoes
+      DB_USERNAME: ${DB_USERNAME:?Defina DB_USERNAME no .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no .env}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?Defina RABBITMQ_USERNAME no .env}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Defina RABBITMQ_PASSWORD no .env}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    ports:
+      - "127.0.0.1::8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ms_notificacoes
+      POSTGRES_USER: ${DB_USERNAME:?Defina DB_USERNAME no .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_LOCAL_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  rabbitmq-init:
+    image: python:3.13-alpine
+    environment:
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?Defina RABBITMQ_USERNAME no .env}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Defina RABBITMQ_PASSWORD no .env}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+    volumes:
+      - ./infra/rabbitmq/generate_definitions.py:/generate_definitions.py:ro
+      - ./docs/topologia.json:/topologia.json:ro
+      - rabbitmq-definitions:/definitions
+    command: [python, /generate_definitions.py]
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_NODENAME: rabbit@rabbitmq
+    ports:
+      - "127.0.0.1:${RABBITMQ_LOCAL_PORT:-5673}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_LOCAL_PORT:-15673}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - rabbitmq-definitions:/definitions:ro
+      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    depends_on:
+      rabbitmq-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, check_port_connectivity]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:${MAIL_SMTP_LOCAL_PORT:-11025}:1025"
+      - "127.0.0.1:${MAIL_UI_LOCAL_PORT:-18025}:8025"
+    healthcheck:
+      test: [CMD, /mailpit, readyz]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  rabbitmq-definitions:
