@@ -12,4 +12,6 @@ Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./m
 
 A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Por enquanto, somente a saúde está acessível: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. Não há consumidores, API de notificações, migrations ou criação de filas nesta etapa; esses itens pertencem às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md).
 
+Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
+
 Não versione credenciais. O RabbitMQ e o SMTP são configurados por variáveis de ambiente; a topologia planejada está em [topologia.json](docs/topologia.json) e o fluxo em [flowSLA.md](docs/flowSLA.md).

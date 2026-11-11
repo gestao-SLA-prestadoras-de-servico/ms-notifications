@@ -1,0 +1,11 @@
+{
+  "tipo": "ATRIBUICAO",
+  "chamado": {
+    "id": "1042",
+    "numero": "#1042"
+  },
+  "titulo": "Equipamento sem funcionamento",
+  "destinatarios": [
+    "sub-tecnico-atribuido"
+  ]
+}

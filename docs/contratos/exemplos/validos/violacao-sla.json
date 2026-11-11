@@ -1,0 +1,14 @@
+{
+  "eventoId": "sla:1042:ATENDIMENTO:2026-11-11T11:00:00Z",
+  "tipo": "VIOLACAO_SLA",
+  "chamado": {
+    "id": "1042",
+    "numero": "#1042"
+  },
+  "titulo": "Equipamento sem funcionamento",
+  "destinatarios": [
+    "sub-gestor-1",
+    "sub-gestor-2",
+    "sub-tecnico-atribuido"
+  ]
+}

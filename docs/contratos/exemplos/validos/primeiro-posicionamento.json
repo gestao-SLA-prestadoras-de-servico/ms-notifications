@@ -1,0 +1,13 @@
+{
+  "eventoId": "evento-7",
+  "tipo": "PRIMEIRO_POSICIONAMENTO",
+  "chamado": {
+    "id": "1042",
+    "numero": "#1042"
+  },
+  "titulo": "Equipamento sem funcionamento",
+  "destinatarios": [
+    "cliente@example.com"
+  ],
+  "textoPosicionamento": "Recebemos o chamado e estamos organizando o atendimento."
+}
