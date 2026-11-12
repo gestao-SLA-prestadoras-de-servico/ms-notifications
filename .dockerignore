@@ -5,3 +5,4 @@
 !docs/
 !docs/contratos/
 !docs/contratos/**
+!docs/openapi.json

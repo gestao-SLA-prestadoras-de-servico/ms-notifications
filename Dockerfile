@@ -4,6 +4,7 @@ COPY pom.xml ./
 RUN --mount=type=cache,target=/root/.m2 mvn -B dependency:go-offline
 COPY src ./src
 COPY docs/contratos ./docs/contratos
+COPY docs/openapi.json ./docs/openapi.json
 RUN --mount=type=cache,target=/root/.m2 mvn -B verify
 
 FROM eclipse-temurin:21-jre-alpine AS runtime

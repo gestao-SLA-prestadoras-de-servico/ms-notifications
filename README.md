@@ -10,7 +10,7 @@ Serviço independente de notificações do FlowSLA. Consome eventos de e-mail e 
 
 Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./mvnw test` para compilar e executar os testes. A porta padrão é 8081 e o endpoint de saúde é `/actuator/health`; sua resposta reflete a disponibilidade das dependências monitoradas.
 
-A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores estão ativos; os endpoints de consulta/leitura pertencem à MS-NOT-11 em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md). A MS-NOT-10 protege `/notificacoes` e seus subcaminhos com JWT; somente a saúde é pública, e as demais rotas continuam negadas. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
+A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores e a API de consulta/leitura estão implementados. `/notificacoes` e seus subcaminhos exigem JWT e papel TECNICO/GESTOR; somente a saúde é pública, e as demais rotas continuam negadas. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
 
 Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
 
@@ -271,7 +271,7 @@ Detalhes: [implementação](docs/tasks/ms-not-08-retries-dlq.md) e [evidências]
 
 A API é um OAuth2 Resource Server stateless. Envie o access token em `Authorization: Bearer <token>`. São validados assinatura RS256 pelas chaves públicas JWKS, emissor exato, audiência, expiração obrigatória, `nbf` quando presente e `sub` não vazio. A validação temporal padrão do Spring Security tolera 60 segundos de diferença entre relógios. Token ausente/inválido recebe **401** com challenge Bearer; token válido sem papel permitido recebe **403**. Cookies, sessão, HTTP Basic e parâmetro `access_token` não autenticam a API.
 
-Somente `TECNICO` e `GESTOR`, lidos de `realm_access.roles`, autorizam `/notificacoes` e `/notificacoes/**`. `CLIENTE`, client roles em `resource_access`, scopes e claims alternativos não concedem acesso. A identidade vem de `IdentidadeAutenticada.sub()`, que entrega o `sub` opaco do JWT validado, sem normalização, consulta ao backend/Keycloak ou destinatário recebido por parâmetro/header. A filtragem das notificações por esse sub será aplicada nos endpoints da MS-NOT-11.
+Somente `TECNICO` e `GESTOR`, lidos de `realm_access.roles`, autorizam `/notificacoes` e `/notificacoes/**`. `CLIENTE`, client roles em `resource_access`, scopes e claims alternativos não concedem acesso. A identidade vem de `IdentidadeAutenticada.sub()`, que entrega o `sub` opaco do JWT validado, sem normalização, consulta ao backend/Keycloak ou destinatário recebido por parâmetro/header. Todas as operações da API filtram por esse sub.
 
 | Variável | Padrão | Uso |
 |---|---|---|
@@ -288,7 +288,7 @@ O realm `flowsla` do backend consultado já possui o mapper `audience-ms-notific
 
 CORS aceita somente as origens listadas, métodos `GET`/`PATCH` e headers `Authorization`/`Content-Type` nas rotas de notificações. Preflight válido dispensa token; origem, método ou header não permitido recebe 403. Não há credenciais por cookie nem curingas. O frontend deve enviar o Bearer em cada requisição.
 
-Apenas `GET/PATCH /notificacoes...` serão implementados pela MS-NOT-11. Nesta task, um usuário autorizado encontra 404 nessas rotas porque ainda não há controller de negócio. Os controllers usados para provar respostas 200/204 e identidade pertencem exclusivamente ao classpath de testes. `/actuator/health` permanece público; `/actuator/info` e rotas fora desse escopo permanecem negados.
+`GET /notificacoes` e `PATCH /notificacoes/{id}/lida` estão implementados na MS-NOT-11. Os testes isolados da MS-NOT-10 preservam seus controllers exclusivos para verificar a segurança sem depender do banco. `/actuator/health` permanece público; `/actuator/info` e rotas fora desse escopo permanecem negados.
 
 ### Teste com Keycloak isolado
 
@@ -307,3 +307,63 @@ try {
 O perfil `keycloak-it` roda somente a integração JWT/Keycloak, além dos testes locais. `postgres-it` e `mensageria-it` continuam independentes do IdP. Após ajustar as variáveis de segurança, atualize a aplicação local com `docker compose up -d --build --no-deps ms-notificacoes`.
 
 Detalhes: [implementação](docs/tasks/ms-not-10-jwt-keycloak.md) e [testes](docs/testes/ms-not-10-jwt-keycloak.md). Referências: [validação JWT no Spring Security](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html) e [importação/variáveis no Keycloak](https://www.keycloak.org/server/importExport).
+
+## Consulta e leitura — MS-NOT-11
+
+O contrato está em [docs/openapi.json](docs/openapi.json), OpenAPI 3.1. O serviço não adiciona Swagger UI ou uma rota pública de documentação. Os dois endpoints exigem `Authorization: Bearer <access-token>` de TECNICO/GESTOR e usam exclusivamente o `sub` autenticado. Não recebem destinatário como parâmetro de negócio.
+
+| Operação | Resposta |
+|---|---|
+| `GET /notificacoes?page=0&size=20` | 200 com itens, metadados da página e total de não lidas do usuário |
+| `PATCH /notificacoes/{id}/lida` | 204 sem corpo, inclusive se já lida |
+| UUID inexistente ou pertencente a outro destinatário | Mesmo 404 com `application/problem+json` |
+| Parâmetro fora do limite, não inteiro ou id não conversível em UUID | 400 com `application/problem+json` |
+| Token ausente/inválido ou papel não permitido | 401/403, conforme a MS-NOT-10 |
+
+`page` começa em zero e `size` aceita 1..100, com padrão 20. `page * size` não pode exceder 2147483647, limite de deslocamento suportado pelo JPA. A ordenação é fixa por `criadoEm DESC, id DESC`; `sort` e parâmetros extras de identidade não alteram a ordem nem o destinatário. Página além do fim retorna itens vazios, mantendo os totais.
+
+Exemplo de resposta:
+
+```json
+{
+  "itens": [{
+    "id": "00000000-0000-0000-0000-000000000001",
+    "tipo": "ATRIBUICAO",
+    "chamadoId": "chamado-opaco",
+    "numeroChamado": "#1042",
+    "titulo": "Manutenção",
+    "mensagem": "Você foi atribuído ao chamado #1042 — Manutenção.",
+    "criadoEm": "2026-11-12T13:00:00Z",
+    "lidaEm": null
+  }],
+  "pagina": 0,
+  "tamanho": 20,
+  "totalElementos": 1,
+  "totalPaginas": 1,
+  "totalNaoLidas": 1
+}
+```
+
+`totalNaoLidas` inclui todas as notificações não lidas do usuário, além da página atual. A consulta e suas contagens usam uma transação de leitura REPEATABLE READ, obtendo um snapshot coerente por resposta. O estado pode mudar entre requisições de polling/paginação.
+
+O DTO não expõe `destinatarioSub` ou `eventoId`. `mensagem` é texto simples derivado dos dados persistidos e deve ser renderizado como texto. `lidaEm=null` representa uma notificação não lida.
+
+A marcação usa um único UPDATE com ID e sub na cláusula WHERE. `coalesce(lidaEm, ...)` mantém o primeiro instante registrado, inclusive com requisições concorrentes. O relógio vem do `Clock` do serviço; se estiver anterior à criação da notificação, a data é limitada à criação para respeitar a restrição do banco. Repetir o PATCH pode executar o UPDATE novamente, mas não altera a primeira data nem o resultado HTTP.
+
+O `chamadoId` permite navegar ao chamado e não concede autorização sobre ele. Ao abrir o chamado, o frontend deve consultar o app-principal; se não houver mais acesso, apresenta um aviso sem dados do chamado. A API de notificações não consulta o backend de forma síncrona para listar ou marcar notificações.
+
+Para verificar com um token obtido no login do Keycloak:
+
+```powershell
+$porta = (docker compose port ms-notificacoes 8081).Split(':')[-1]
+$headers = @{ Authorization = "Bearer $token" }
+$pagina = Invoke-RestMethod "http://localhost:$porta/notificacoes?page=0&size=20" -Headers $headers
+if ($pagina.itens.Count -gt 0) {
+    $id = $pagina.itens[0].id
+    Invoke-WebRequest "http://localhost:$porta/notificacoes/$id/lida" -Method Patch -Headers $headers
+}
+```
+
+O teste `NotificacoesApiPostgresIT` roda nos perfis `postgres-it` e `mensageria-it`, usando schema PostgreSQL exclusivo, controllers/filtros reais e decoder substituído apenas para isolar os casos de dados. Assinatura e emissão Keycloak continuam cobertas pelos testes da MS-NOT-10; a validação operacional desta task também exercita a imagem final com JWT real e eventos no RabbitMQ. Não há migration nova nem variável de ambiente nova.
+
+Detalhes: [implementação](docs/tasks/ms-not-11-api-notificacoes.md) e [evidências](docs/testes/ms-not-11-api-notificacoes.md).

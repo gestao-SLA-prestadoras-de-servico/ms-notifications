@@ -1,0 +1,78 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "API de notificações FlowSLA", "version": "1.0.0", "description": "Somente TECNICO/GESTOR. A identidade é o sub do access token, nunca um parâmetro. O chamadoId serve à navegação; autorização atual do chamado é verificada no app-principal ao abri-lo."},
+  "security": [{"bearerAuth": []}],
+  "paths": {
+    "/notificacoes": {
+      "get": {
+        "operationId": "listarNotificacoes",
+        "summary": "Consultar as próprias notificações e a contagem total de não lidas",
+        "description": "Ordenação fixa: criadoEm DESC, id DESC. A contagem totalNaoLidas considera todas as notificações do usuário, inclusive fora da página. Parâmetros extras de destinatário e sort não substituem a identidade nem a ordem. Página além do fim retorna itens vazios mantendo os totais. Lista e contagens usam o mesmo snapshot transacional.",
+        "parameters": [
+          {"name": "page", "in": "query", "description": "Página baseada em zero. page * size deve ser no máximo 2147483647.", "schema": {"type": "integer", "minimum": 0, "maximum": 2147483647, "default": 0}},
+          {"name": "size", "in": "query", "description": "Itens por página.", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}}
+        ],
+        "responses": {
+          "200": {"description": "Página das próprias notificações", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PaginaNotificacoes"}}}},
+          "400": {"$ref": "#/components/responses/ParametroInvalido"},
+          "401": {"$ref": "#/components/responses/NaoAutenticado"},
+          "403": {"$ref": "#/components/responses/AcessoNegado"}
+        }
+      }
+    },
+    "/notificacoes/{id}/lida": {
+      "patch": {
+        "operationId": "marcarNotificacaoComoLida",
+        "summary": "Marcar uma notificação própria como lida",
+        "description": "Sem corpo. Retorna 204 inclusive se já lida, preservando a primeira data sob concorrência. A data usa o Clock do serviço e nunca fica anterior à criação. Notificação inexistente e notificação de outro usuário retornam a mesma resposta 404.",
+        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}}],
+        "responses": {
+          "204": {"description": "Leitura registrada ou já existente; sem corpo"},
+          "400": {"$ref": "#/components/responses/ParametroInvalido"},
+          "401": {"$ref": "#/components/responses/NaoAutenticado"},
+          "403": {"$ref": "#/components/responses/AcessoNegado"},
+          "404": {"description": "Notificação não encontrada para o destinatário autenticado", "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problema"}, "example": {"type": "about:blank", "title": "Notificação não encontrada", "status": 404, "detail": "Notificação não encontrada.", "instance": "/notificacoes/00000000-0000-0000-0000-000000000001/lida"}}}}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "Access token Keycloak RS256 com aud ms-notificacoes, sub e papel TECNICO ou GESTOR em realm_access.roles."}},
+    "responses": {
+      "ParametroInvalido": {"description": "Paginação inválida, deslocamento fora do limite ou id não conversível em UUID", "content": {"application/problem+json": {"schema": {"$ref": "#/components/schemas/Problema"}}}},
+      "NaoAutenticado": {"description": "Access token ausente ou inválido; sem corpo", "headers": {"WWW-Authenticate": {"schema": {"type": "string"}, "description": "Challenge Bearer"}}},
+      "AcessoNegado": {"description": "Token válido sem papel autorizado; sem corpo"}
+    },
+    "schemas": {
+      "PaginaNotificacoes": {
+        "type": "object", "additionalProperties": false,
+        "required": ["itens", "pagina", "tamanho", "totalElementos", "totalPaginas", "totalNaoLidas"],
+        "properties": {
+          "itens": {"type": "array", "items": {"$ref": "#/components/schemas/Notificacao"}},
+          "pagina": {"type": "integer", "minimum": 0},
+          "tamanho": {"type": "integer", "minimum": 1, "maximum": 100},
+          "totalElementos": {"type": "integer", "format": "int64", "minimum": 0},
+          "totalPaginas": {"type": "integer", "minimum": 0},
+          "totalNaoLidas": {"type": "integer", "format": "int64", "minimum": 0}
+        }
+      },
+      "Notificacao": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "tipo", "chamadoId", "numeroChamado", "titulo", "mensagem", "criadoEm", "lidaEm"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "tipo": {"type": "string", "enum": ["ATRIBUICAO", "REATRIBUICAO", "REMOCAO", "REABERTURA", "CONCLUSAO", "VIOLACAO_SLA"]},
+          "chamadoId": {"type": "string", "description": "Identificador opaco do chamado para navegação; não concede acesso ao chamado."},
+          "numeroChamado": {"type": "string"}, "titulo": {"type": "string"},
+          "mensagem": {"type": "string", "description": "Texto simples; renderizar como texto, sem interpretar HTML."},
+          "criadoEm": {"type": "string", "format": "date-time"},
+          "lidaEm": {"type": ["string", "null"], "format": "date-time", "description": "Null enquanto não lida; primeira data de leitura preservada."}
+        }
+      },
+      "Problema": {"type": "object", "required": ["type", "title", "status", "detail", "instance"], "properties": {
+        "type": {"type": "string", "format": "uri"}, "title": {"type": "string"}, "status": {"type": "integer"},
+        "detail": {"type": "string"}, "instance": {"type": "string", "format": "uri-reference"}
+      }}
+    }
+  }
+}
