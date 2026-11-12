@@ -10,7 +10,7 @@ Serviço independente de notificações do FlowSLA. O app-principal publica even
 
 Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./mvnw test` para compilar e executar os testes. A porta padrão é 8081 e o endpoint de saúde é `/actuator/health`; sua resposta reflete a disponibilidade das dependências monitoradas.
 
-A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Por enquanto, somente a saúde está acessível: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker. Consumidores, API de notificações e migrations pertencem às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md).
+A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Por enquanto, somente a saúde está acessível: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker e o schema pelo Flyway. Consumidores e API de notificações pertencem às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md).
 
 Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
 
@@ -78,3 +78,38 @@ docker compose -p ms-not-03-test down
 O script confere topologia/TTL de sete dias, roteamento dos dois canais, mensagens persistentes após restart e recriação, rejeição para cada DLQ, acesso ao banco, captura SMTP no Mailpit e saúde das quatro réplicas. A retenção de sete dias é conferida na configuração efetiva do broker; o teste não espera sete dias. O build roda também a suíte Java. Resultados desta implementação estão em [docs/testes/ms-not-03-docker-rabbitmq.md](docs/testes/ms-not-03-docker-rabbitmq.md).
 
 Referências: [importação de definições RabbitMQ](https://www.rabbitmq.com/docs/definitions), [durabilidade e confirmação de publicação](https://www.rabbitmq.com/docs/confirms), [health checks Mailpit](https://mailpit.axllent.org/docs/integration/healthcheck/) e [rede/escala no Compose](https://docs.docker.com/compose/how-tos/networking/).
+
+## Banco e migrations — MS-NOT-04
+
+O serviço usa o banco e as credenciais `DB_*` próprios, sem acessar o banco do backend. O Flyway aplica as migrations de [`src/main/resources/db/migration`](src/main/resources/db/migration) antes da inicialização JPA. O Hibernate usa `ddl-auto=validate`: valida o mapeamento, sem criar ou alterar tabelas. O Flyway valida checksums e tem `clean` desabilitado.
+
+| Tabela | Conteúdo e unicidade |
+|---|---|
+| `notificacao_interna` | UUID local, `destinatario_sub`, `evento_id`, tipo interno, ID/número/título do chamado, `criado_em` e `lida_em` opcional. Única por `(evento_id, destinatario_sub)` |
+| `evento_processado` | UUID local, `evento_id`, canal e instante do sucesso. Única por `(evento_id, canal)` |
+
+Os identificadores recebidos são strings opacas, inclusive o `eventoId` determinístico de SLA; somente os IDs locais são UUIDs gerados pelo JPA. Datas usam `Instant`/`timestamp with time zone` com precisão de microssegundos. Novas notificações têm leitura nula. Campos do evento são imutáveis no mapeamento JPA; as datas são fornecidas pelo chamador, que deverá obter o instante de um `Clock` ao implementar o processamento.
+
+Os índices atendem consulta por destinatário com ordenação `criado_em DESC, id DESC`, contagem de não lidas (índice parcial) e futuro expurgo por data de criação. O banco rejeita duplicações, campos obrigatórios nulos/vazios, tipos de e-mail em notificações internas, canais desconhecidos e leitura anterior à criação.
+
+Não há chave estrangeira entre as duas tabelas: apagar uma notificação não apaga seu marcador de sucesso. Também não há colunas para e-mail, texto de posicionamento ou payload. O marcador representa sucesso do **evento inteiro no canal**, incluindo todos os destinatários internos. A coordenação concorrente e a transação de processamento serão implementadas na MS-NOT-05; esta task fornece a estrutura e as restrições, sem registrar eventos antes do sucesso. O expurgo automático de 90 dias pertence à MS-NOT-12.
+
+Para atualizar uma instalação existente, execute `docker compose up -d --build --wait`. A V1 cria as tabelas num banco vazio, inclusive no banco provisionado pela MS-NOT-03 que ainda não tenha tabelas. Não habilite `baseline-on-migrate` nem apague dados para contornar divergências em um schema já preenchido. Depois de aplicada, uma migration deve permanecer imutável; alterações futuras entram em V2, V3 etc.
+
+### Testes PostgreSQL
+
+`mvnw.cmd test` executa contratos e inicialização com H2, sem aplicar o SQL PostgreSQL. Para testar migrations, restrições, índices e repositórios reais, use o perfil `postgres-it`. O teste cria um schema aleatório `it_*` vazio e usa `ddl-auto=validate`; não altera tabelas de outros schemas. O schema de testes fica no banco de testes para inspeção.
+
+Com Docker e `.env` configurado, na raiz do projeto, execute em um projeto separado:
+
+```powershell
+# Evita conflito com a stack principal que já usa localhost:15432.
+$env:POSTGRES_LOCAL_PORT = '25432'
+docker compose -p ms-not-04-test -f compose.yaml -f infra/compose.postgres-it.yaml run --build --rm postgres-it
+docker compose -p ms-not-04-test -f compose.yaml -f infra/compose.postgres-it.yaml down
+Remove-Item Env:POSTGRES_LOCAL_PORT
+```
+
+Esse comando inicia somente PostgreSQL e o runner de testes; não requer Java/Python no host. O runner mantém um volume de cache Maven. Para executar com Java 21 no host, defina `IT_DB_URL`, `IT_DB_USERNAME` e `IT_DB_PASSWORD` apontando a um banco PostgreSQL de testes e rode `mvnw.cmd -Ppostgres-it verify` (Linux/macOS: `./mvnw -Ppostgres-it verify`). O perfil falha se o banco não estiver disponível; não substitui PostgreSQL por H2.
+
+Detalhes e resultados: [implementação](docs/tasks/ms-not-04-banco-flyway.md) e [testes](docs/testes/ms-not-04-banco-flyway.md). Referência de configuração: [inicialização de banco no Spring Boot](https://docs.spring.io/spring-boot/how-to/data-initialization.html).
