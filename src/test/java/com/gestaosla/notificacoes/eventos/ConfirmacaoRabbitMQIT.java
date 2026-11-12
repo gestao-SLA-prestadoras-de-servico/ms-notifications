@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.eventos;
 
+import static com.gestaosla.notificacoes.suporte.ConfiguracaoIT.valor;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -53,11 +54,11 @@ class ConfirmacaoRabbitMQIT {
         notificacoes.deleteAll();
         processados.deleteAll();
         var factory = new ConnectionFactory();
-        factory.setHost(System.getenv("IT_RABBITMQ_HOST"));
-        factory.setPort(Integer.parseInt(System.getenv().getOrDefault("IT_RABBITMQ_PORT", "5672")));
-        factory.setUsername(System.getenv("IT_RABBITMQ_USERNAME"));
-        factory.setPassword(System.getenv("IT_RABBITMQ_PASSWORD"));
-        factory.setVirtualHost(System.getenv().getOrDefault("IT_RABBITMQ_VHOST", "/"));
+        factory.setHost(valor("IT_RABBITMQ_HOST"));
+        factory.setPort(Integer.parseInt(valor("IT_RABBITMQ_PORT", "5672")));
+        factory.setUsername(valor("IT_RABBITMQ_USERNAME"));
+        factory.setPassword(valor("IT_RABBITMQ_PASSWORD"));
+        factory.setVirtualHost(valor("IT_RABBITMQ_VHOST", "/"));
         factory.setAutomaticRecoveryEnabled(false);
         connection = factory.newConnection();
         channel = connection.createChannel();

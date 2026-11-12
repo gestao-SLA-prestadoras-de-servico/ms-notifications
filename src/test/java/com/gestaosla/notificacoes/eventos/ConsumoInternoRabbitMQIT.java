@@ -141,6 +141,21 @@ class ConsumoInternoRabbitMQIT {
     }
 
     @Test
+    void transferenciaPorInativacaoNotificaSomenteSubstitutoDoContrato() throws Exception {
+        // O produtor seleciona os destinatários; o consumidor não infere REMOCAO para o inativado.
+        var transferencia = evento(TipoEvento.REATRIBUICAO);
+        assertThat(transferencia.get("destinatarios").get(0).asText()).isEqualTo("sub-tecnico-substituto");
+        publicar(transferencia);
+        aguardarSucesso(1);
+        container().stop();
+        assertThat(notificacoes.findAll()).allSatisfy(n -> {
+            assertThat(n.getDestinatarioSub()).isEqualTo("sub-tecnico-substituto");
+            assertThat(n.getTipo()).isEqualTo(TipoEvento.REATRIBUICAO);
+        });
+        assertThat(jdbc.queryForObject("select count(*) from notificacao_interna where destinatario_sub = 'sub-tecnico-inativado' or tipo = 'REMOCAO'", Long.class)).isZero();
+    }
+
+    @Test
     void destinatariosRepetidosNoPayloadGeramUmaNotificacaoPorSub() throws Exception {
         var event = evento(TipoEvento.ATRIBUICAO);
         event.putArray("destinatarios").add("sub-1").add("sub-1").add("sub-2");

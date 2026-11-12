@@ -422,3 +422,20 @@ O complemento habilita `rabbitmq_management` e `rabbitmq_prometheus` via arquivo
 O Prometheus descobre instâncias da aplicação por DNS e coleta também as métricas por fila do RabbitMQ. O dashboard provisionado `FlowSLA / Notificações e filas` mostra profundidade, consumidores, taxa de entregas, DLQs, eventos/falhas e circuito. A primeira amostra de uma série aparece após sua criação e coleta; `rate` precisa de amostras suficientes. `/actuator/prometheus` e o endpoint do plugin Rabbit devem permanecer em rede confiável.
 
 Para validar em `ms-not-13-test`, mantenha os serviços da stack isolada em execução e rode `python infra/smoke_observabilidade.py`. O roteiro publica eventos fictícios e interrompe/reinicia **somente** o Mailpit dessa stack; verifica coleta, dashboard, isolamento do canal interno, liveness, circuito e recuperação. Não executa purge nem remove volumes. Detalhes: [implementação](docs/tasks/ms-not-13-observabilidade.md) e [testes](docs/testes/ms-not-13-observabilidade.md).
+
+
+## Testes automatizados — MS-NOT-14
+
+Com Java 21, Docker em execução e acesso aos repositórios de dependências/imagens, execute na raiz:
+
+```powershell
+.\mvnw.cmd -B -Pcompleto-it verify
+```
+
+Linux/macOS: `./mvnw -B -Pcompleto-it verify`. O perfil executa os testes locais e toda a integração, incluindo segurança com tokens Keycloak reais e o fluxo RabbitMQ → PostgreSQL → API. PostgreSQL, RabbitMQ, Mailpit e Keycloak são criados pelo Testcontainers com portas aleatórias, credenciais temporárias e dados descartáveis. Não precisa de `.env` nem da stack Compose iniciada. Docker indisponível ou teste falhando retorna erro; os testes não são ignorados por falta de infraestrutura.
+
+Os containers são encerrados ao terminar; Ryuk acompanha sua limpeza. Não execute com reutilização de containers. Os dados sintéticos da suíte são descartados. Os relatórios XML e texto ficam em `target/surefire-reports` (testes locais) e `target/failsafe-reports` (integração). O Maven Wrapper baixa Maven/dependências no cache do usuário na primeira execução. Testcontainers precisa de acesso ao daemon Docker; em runners dentro de containers, configure o socket e a conectividade com as portas publicadas conforme o ambiente.
+
+`test` continua executando somente os testes locais, sem criar containers. Os perfis `postgres-it`, `mensageria-it` e `keycloak-it` preservam os runners externos existentes. Escolha apenas um perfil por execução. A automação de CI pertence à MS-NOT-17.
+
+Matriz de cobertura: [implementação](docs/tasks/ms-not-14-testes-automatizados.md). Evidências: [testes](docs/testes/ms-not-14-testes-automatizados.md).

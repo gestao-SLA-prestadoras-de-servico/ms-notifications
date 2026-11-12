@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.eventos;
 
+import static com.gestaosla.notificacoes.suporte.ConfiguracaoIT.valor;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -158,7 +159,7 @@ class RecuperacaoSmtpIT {
             });
             verify(sender, times(11)).send(any(MimeMessage.class));
             var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-            String url = System.getenv().getOrDefault("IT_MAILPIT_URL", "http://localhost:8025")
+            String url = valor("IT_MAILPIT_URL", "http://localhost:8025")
                     + "/api/v1/search?query=subject:" + TOKEN;
             await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
                 var response = http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(5)).GET().build(),

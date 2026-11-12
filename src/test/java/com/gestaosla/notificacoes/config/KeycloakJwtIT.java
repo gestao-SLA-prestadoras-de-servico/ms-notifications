@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.config;
 
+import static com.gestaosla.notificacoes.suporte.ConfiguracaoIT.valor;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -73,7 +74,7 @@ class KeycloakJwtIT {
     }
 
     @Test void assinaturaValidaNaoDispensaValidacaoDoEmissor() throws Exception {
-        var incorreto = new SecurityConfig().jwtDecoder("https://outro.example/realms/flowsla", System.getenv("IT_KEYCLOAK_URL")
+        var incorreto = new SecurityConfig().jwtDecoder("https://outro.example/realms/flowsla", valor("IT_KEYCLOAK_URL")
                 + "/realms/flowsla-ms-not-test/protocol/openid-connect/certs", "ms-notificacoes");
         String token = token("gestor", "ms-not-test");
         assertThatThrownBy(() -> incorreto.decode(token)).isInstanceOf(JwtException.class);
@@ -81,8 +82,8 @@ class KeycloakJwtIT {
 
     private String token(String usuario, String clientId) throws Exception {
         String form = "grant_type=password&client_id=" + clientId + "&username=" + usuario + "&password="
-                + URLEncoder.encode(System.getenv("IT_KEYCLOAK_PASSWORD"), StandardCharsets.UTF_8);
-        var request = HttpRequest.newBuilder(URI.create(System.getenv("IT_KEYCLOAK_URL")
+                + URLEncoder.encode(valor("IT_KEYCLOAK_PASSWORD"), StandardCharsets.UTF_8);
+        var request = HttpRequest.newBuilder(URI.create(valor("IT_KEYCLOAK_URL")
                         + "/realms/flowsla-ms-not-test/protocol/openid-connect/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded").timeout(Duration.ofSeconds(10))
                 .POST(HttpRequest.BodyPublishers.ofString(form)).build();

@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.eventos;
 
+import static com.gestaosla.notificacoes.suporte.ConfiguracaoIT.valor;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -261,7 +262,7 @@ class ConsumoEmailMailpitIT {
     }
 
     private JsonNode api(String path) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create(System.getenv("IT_MAILPIT_URL") + path)).timeout(Duration.ofSeconds(5)).GET().build();
+        var request = HttpRequest.newBuilder(URI.create(valor("IT_MAILPIT_URL") + path)).timeout(Duration.ofSeconds(5)).GET().build();
         var response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         assertThat(response.statusCode()).isEqualTo(200);
         return JSON.readTree(response.body());

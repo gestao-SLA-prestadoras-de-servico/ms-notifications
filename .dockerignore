@@ -6,3 +6,6 @@
 !docs/contratos/
 !docs/contratos/**
 !docs/openapi.json
+!infra/
+!infra/keycloak/
+!infra/keycloak/**
