@@ -27,7 +27,11 @@ public class ProcessadorMensagemNotificacao {
         var evento = leitor.ler(new String(mensagem.getBody(), StandardCharsets.UTF_8), canal);
         var resultado = processador.processar(evento.eventoId(), canal, () -> acao.accept(evento));
         // Confirma somente esta entrega, no canal de origem, após o commit ou descarte da repetição.
-        channel.basicAck(mensagem.getMessageProperties().getDeliveryTag(), false);
+        try {
+            channel.basicAck(mensagem.getMessageProperties().getDeliveryTag(), false);
+        } catch (RuntimeException ex) {
+            throw new IOException("Falha ao confirmar entrega já processada", ex);
+        }
         return resultado;
     }
 }

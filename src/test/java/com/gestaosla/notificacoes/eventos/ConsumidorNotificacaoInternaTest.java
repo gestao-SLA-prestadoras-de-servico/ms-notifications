@@ -1,43 +1,45 @@
 package com.gestaosla.notificacoes.eventos;
 
+import java.io.IOException;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
-
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class ConsumidorNotificacaoInternaTest {
     @Test
-    void delegaAoAdaptadorQueConfirmaSomenteDepoisDoCommit() throws Exception {
-        var processor = mock(ProcessadorMensagemNotificacao.class);
-        var persistidor = mock(PersistidorNotificacaoInterna.class);
+    void delegaAoFluxoComRetryNoCanalCorreto() throws Exception {
+        var processor = mock(ProcessadorEntrega.class);
+        var service = mock(PersistidorNotificacaoInterna.class);
         var channel = mock(Channel.class);
         var message = mensagem();
-        new ConsumidorNotificacaoInterna(processor, persistidor).consumir(message, channel);
-        verify(processor).processar(eq(message), eq(channel), eq(CanalNotificacao.INTERNA), any());
+        new ConsumidorNotificacaoInterna(processor, service).consumir(message, channel);
+        verify(processor).consumir(eq(message), eq(channel), eq(CanalNotificacao.INTERNA), any());
         verifyNoInteractions(channel);
     }
 
     @Test
-    void invalidaERejeitadaSemRequeueOuAck() throws Exception {
-        var processor = mock(ProcessadorMensagemNotificacao.class);
-        when(processor.processar(any(), any(), any(), any())).thenThrow(new EventoInvalidoException());
-        var channel = mock(Channel.class);
-        new ConsumidorNotificacaoInterna(processor, mock(PersistidorNotificacaoInterna.class)).consumir(mensagem(), channel);
-        verify(channel).basicReject(42L, false);
-        verifyNoMoreInteractions(channel);
+    @SuppressWarnings("unchecked")
+    void entregaAcaoConcretaAoProcessador() throws Exception {
+        var processor = mock(ProcessadorEntrega.class);
+        var service = mock(PersistidorNotificacaoInterna.class);
+        var event = mock(EventoNotificacao.class);
+        doAnswer(inv -> { ((java.util.function.Consumer<EventoNotificacao>) inv.getArgument(3)).accept(event); return null; })
+                .when(processor).consumir(any(), any(), any(), any());
+        new ConsumidorNotificacaoInterna(processor, service).consumir(mensagem(), mock(Channel.class));
+        verify(service).persistir(event);
     }
 
     @Test
-    void falhaDeProcessamentoSolicitaReentregaSemAck() throws Exception {
-        var processor = mock(ProcessadorMensagemNotificacao.class);
-        when(processor.processar(any(), any(), any(), any())).thenThrow(new IllegalStateException("Falha simulada"));
+    void propagaFalhaDeTransporteSemConfirmarPorContaPropria() throws Exception {
+        var processor = mock(ProcessadorEntrega.class);
+        doThrow(new IOException("Falha simulada")).when(processor).consumir(any(), any(), any(), any());
         var channel = mock(Channel.class);
-        new ConsumidorNotificacaoInterna(processor, mock(PersistidorNotificacaoInterna.class)).consumir(mensagem(), channel);
-        verify(channel).basicNack(42L, false, true);
-        verifyNoMoreInteractions(channel);
+        assertThatThrownBy(() -> new ConsumidorNotificacaoInterna(processor, mock(PersistidorNotificacaoInterna.class)).consumir(mensagem(), channel)).isInstanceOf(IOException.class);
+        verifyNoInteractions(channel);
     }
 
     private Message mensagem() {

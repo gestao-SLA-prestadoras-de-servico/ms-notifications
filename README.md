@@ -124,7 +124,7 @@ O lock é liberado automaticamente no commit/rollback. `PROCESSAMENTO_LOCK_TIMEO
 
 Os consumidores chamam `ProcessadorMensagemNotificacao.processar(mensagem, channel, canal, acao)`. O adaptador valida o contrato/canal, chama o coordenador e executa `basicAck(deliveryTag, false)` no canal de origem depois do commit, inclusive nas repetições já processadas. Os containers Spring AMQP simple/direct usam ACK manual. Os consumidores interno e de e-mail estão conectados desde as MS-NOT-06/MS-NOT-07.
 
-Falhas de validação, ação, lock, persistência ou commit são propagadas pelo adaptador **sem ACK**. O listener interno rejeita mensagens inválidas sem requeue (DLQ) e solicita reentrega nas falhas de processamento. A política com classificação de falhas, limite e backoff será implementada na MS-NOT-08. Uma falha no próprio ACK também é propagada: se o broker reentregar após o commit, o marcador evita repetir a ação. Não há ACK antecipado nem confirmação em lote.
+Falhas de validação, ação, lock, persistência ou commit são propagadas pelo adaptador **sem ACK**. `ProcessadorEntrega` aplica a classificação e o limite da MS-NOT-08, publica na fila de espera ou DLQ com confirmação e rota válida e só então confirma a origem. Uma falha no próprio ACK é propagada: se o broker reentregar após o commit, o marcador evita repetir a ação. Não há ACK antecipado nem confirmação em lote.
 
 O app-principal deve preservar `eventoId` **e o conjunto de destinatários** nas republicações. Todos os destinatários internos fazem parte do mesmo processamento; uma notificação por evento/sub é protegida no banco. Uma mensagem que reutilize um ID já concluído com destinatários diferentes será reconhecida como repetição. Os marcadores não são removidos quando notificações são excluídas.
 
@@ -164,7 +164,7 @@ O texto é calculado por `NotificacaoInterna.getMensagem()` com os campos persis
 
 O consumidor não consulta backend, Keycloak ou SMTP. O produtor é responsável por selecionar gestores/técnicos conforme as regras e, na inativação, enviar somente o substituto em `REATRIBUICAO`, sem emitir `REMOCAO` para o inativado. Uma notificação de remoção mantém a referência do chamado para identificação e não concede acesso a ele; a autorização continua responsabilidade do app-principal. Destinatários repetidos na mesma lista são consolidados pelo `sub`, sem normalizar ou modificar identificadores opacos.
 
-Mensagens inválidas, desconhecidas ou de e-mail recebidas na fila interna são rejeitadas com `requeue=false`, seguindo a DLX configurada no broker. Falhas de processamento/banco provocam rollback e NACK individual com `requeue=true`. O tratamento atual não tem limite de tentativas nem backoff: uma falha persistente pode causar reentregas contínuas até a implementação da MS-NOT-08. Falhas de I/O no ACK são propagadas para recuperação do canal; o marcador já confirmado protege a próxima entrega. Os logs do listener não incluem corpo, e-mail, posicionamento ou stack trace contendo payload.
+Mensagens inválidas, desconhecidas ou de e-mail recebidas na fila interna seguem diretamente para a DLQ por publicação confirmada. Falhas temporárias de banco recebem até três retries com backoff; falhas definitivas e esgotamento seguem à DLQ. Falhas de I/O no ACK são propagadas para recuperação do canal; o marcador já confirmado protege a próxima entrega. Os logs não incluem corpo, e-mail, posicionamento ou stack trace contendo payload.
 
 Variáveis novas:
 
@@ -191,7 +191,7 @@ Os três e-mails incluem número e título do chamado em texto e HTML, com UTF-8
 
 O marcador `EMAIL` é gravado somente após todos os envios terminarem, e o ACK vem após o commit. E-mail, corpo e texto do posicionamento não são persistidos; os logs do listener registram somente a categoria da falha, sem destinatário, payload ou mensagem de exceção SMTP. Republicações de eventos concluídos não reenviam. A janela SMTP entre aceitação e gravação do sucesso, descrita na MS-NOT-05, permanece: queda/falha no commit ou envio parcial pode produzir e-mail duplicado na próxima entrega.
 
-Mensagens inválidas ou de outro canal são rejeitadas sem requeue para a DLQ configurada. Erros SMTP/preparação/banco geram NACK com requeue; classificação de SMTP 4xx/5xx, limite/backoff e circuit breaker pertencem às MS-NOT-08/MS-NOT-09. Até lá, falhas persistentes podem causar reentregas contínuas. O canal interno possui listener separado e continua operacional durante a falha de SMTP.
+Mensagens inválidas ou de outro canal e erros SMTP 5xx seguem diretamente para a DLQ por publicação confirmada. SMTP 4xx, timeout e falhas temporárias de banco recebem até três retries com backoff. O circuit breaker permanece para a MS-NOT-09. O canal interno possui listener separado e continua operacional durante a falha de SMTP.
 
 | Variável | Padrão | Uso |
 |---|---|---|
@@ -211,3 +211,58 @@ Para desenvolvimento, execute `docker compose up -d --build --wait` e abra o [Ma
 O perfil `mensageria-it` inclui a suíte `ConsumoEmailMailpitIT`, que usa listeners Spring reais, SMTP real e a API do Mailpit para verificar remetente/destinatários, conteúdo MIME, escape HTML, duplicações, falhas e isolamento. Use os comandos de mensageria acima com o projeto `ms-not-07-test` e, se houver outra stack ativa, defina também `MAIL_SMTP_LOCAL_PORT=21025` e `MAIL_UI_LOCAL_PORT=28025`. O perfil `postgres-it` continua sem depender de RabbitMQ/Mailpit. O smoke de infraestrutura desliga os dois consumidores somente em sua stack descartável.
 
 Detalhes: [implementação](docs/tasks/ms-not-07-emails-cliente.md) e [testes](docs/testes/ms-not-07-emails-cliente.md). Referências: [alternativas texto/HTML com MimeMessageHelper](https://docs.spring.io/spring-framework/docs/6.2.7/javadoc-api/org/springframework/mail/javamail/MimeMessageHelper.html) e [API do Mailpit](https://mailpit.axllent.org/docs/api-v1/).
+
+## Retries e DLQ — MS-NOT-08
+
+Os dois listeners delegam a `ProcessadorEntrega`. Cada entrega executa a ação uma vez; em erro, `ClassificadorFalha` percorre causas, exceções encadeadas de JavaMail/SQL e falhas individuais de envio para decidir entre retry e DLQ. Não há `Thread.sleep`, loop de tentativas na aplicação ou retry adicional de `RabbitTemplate`/containers Spring AMQP.
+
+| Falha | Tratamento |
+|---|---|
+| Timeout, conexão SMTP interrompida/recusada/DNS, SMTP 4xx | Inicial + até 3 retries |
+| Falha temporária Spring Data/SQL (conexão, serialização/deadlock, recursos, lock timeout, indisponibilidade) | Inicial + até 3 retries |
+| SMTP 5xx, contrato/canal/header inválido, preparação inválida, integridade SQL ou falha desconhecida | DLQ direta |
+| Quarta tentativa temporária sem sucesso | DLQ do canal, com registro de falha nos logs |
+| Falha ao publicar/confirmar ou ausência de rota | Sem ACK da origem; NACK com requeue para preservar a entrega |
+
+SMTP 5xx prevalece quando um lote tem erros mistos. Códigos vêm das exceções do provider Angus; nas respostas de saudação/autenticação sem campo próprio, também é reconhecido o formato de resposta SMTP do provider. Mensagens de exceção, destinatários e corpo não são enviados aos logs. A dependência Angus já usada pelo starter em runtime passa também ao classpath de compilação para ler seus códigos tipados.
+
+### Filas de espera e backoff
+
+`notificacoes.retry` é uma exchange direct durável, com seis filas quorum duráveis: `notificacoes.retry.{email|interna}.{1|2|3}`. A routing key é `{canal}.{etapa}`. Políticas por etapa definem TTL, `dead-letter-strategy=at-least-once` e `overflow=reject-publish`. Ao expirar, a mensagem volta à exchange `notificacoes`, routing key do canal. O broker conserva a cópia na fila de espera até a fila de trabalho confirmar a transferência. As filas de trabalho/DLQ existentes continuam classic; nenhuma fila existente é apagada ou muda de tipo.
+
+O intervalo da etapa `n` é `min(RETRY_MAX_INTERVAL_MS, round(RETRY_INITIAL_INTERVAL_MS * RETRY_MULTIPLIER^(n-1)))`. Os padrões são **1 s, 2 s e 4 s**, com multiplicador 2 e teto de 30 s. TTL fica em políticas, permitindo atualizar o backoff sem recriar as filas. O gerador de definições valida os parâmetros e aplica o vhost configurado também às políticas.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `RETRY_INITIAL_INTERVAL_MS` | `1000` | Intervalo inicial positivo, configurado no init do broker |
+| `RETRY_MULTIPLIER` | `2` | Multiplicador finito maior que 1 |
+| `RETRY_MAX_INTERVAL_MS` | `30000` | Teto maior ou igual ao intervalo inicial |
+| `RETRY_CONFIRM_TIMEOUT_MS` | `5000` | Espera máxima positiva pela confirmação de publicação |
+| `NOTIFICACOES_RETRY_EXCHANGE` | `notificacoes.retry` | Exchange de espera previamente provisionada |
+| `NOTIFICACOES_DLX` | `notificacoes.dlx` | Exchange da DLQ previamente provisionada |
+
+Em infraestrutura externa, esses nomes e políticas devem ser provisionados de forma coerente. Alterar somente os nomes no ambiente da aplicação não cria recursos. Os timeouts SMTP continuam configuráveis por `MAIL_*_TIMEOUT_MS`; lock timeout permanece em `PROCESSAMENTO_LOCK_TIMEOUT`.
+
+### Segurança do encaminhamento e contagem
+
+As cópias preservam o corpo, `eventoId`, destinatários e propriedades úteis. São persistentes, removem a expiração específica da mensagem original e carregam `x-notificacoes-tentativa` (2, 3 ou 4 nas novas tentativas) e `x-notificacoes-categoria`. A entrega inicial sem header corresponde à tentativa 1; valores fora de 1..4 ou com tipo inválido seguem diretamente para DLQ, sem executar a ação.
+
+O publicador usa conexão de publicação, `mandatory=true`, returns e publisher confirms correlacionados. A origem recebe ACK individual somente após confirm positivo e ausência de return. Se isso falhar, a origem é preservada para recuperação do transporte. Não se chama `basicReject` para transferir falhas de aplicação pela DLX classic: a publicação explícita evita confirmar a origem antes da entrega segura à DLQ. As DLQs mantêm TTL de sete dias.
+
+O limite de quatro é por **cadeia lógica de tentativas**, armazenado no broker e preservado em reentregas após retries/reinícios. Falhas de transporte podem reentregar a mesma tentativa; uma queda entre confirmação da cópia e ACK da origem pode duplicar a cópia. Essas entregas adicionais não representam nova etapa de backoff, e o marcador da MS-NOT-05 protege eventos concluídos. Não há garantia de exatamente uma vez para SMTP; a janela de duplicação documentada continua válida.
+
+Logs de DLQ informam somente canal, tentativa e categoria; não persistem payload em tabela nem marcam um evento com falha como sucesso. O circuit breaker/pausa automática é responsabilidade da MS-NOT-09.
+
+### Aplicação em ambiente existente e testes
+
+As definições são importadas no boot do RabbitMQ. Depois de mudar a topologia/backoff, é necessário atualizar o init e reiniciar/recriar o broker com o mesmo volume. Para aplicar esta task à stack local em uma janela de reinício:
+
+```powershell
+docker compose up -d --build --force-recreate --wait --wait-timeout 240
+```
+
+O comando recria containers, preservando os volumes; **não use `down -v`**. A identidade do nó e as filas antigas são mantidas. Apenas reconstruir a aplicação com o broker antigo ainda em execução não importa as novas definições. Para repetir a suíte, use os comandos `mensageria-it` com o projeto `ms-not-08-test`. O perfil `postgres-it` continua excluindo os testes que dependem de broker/SMTP.
+
+Reprocessamento manual de uma mensagem da DLQ exige corrigir a causa e reiniciar a cadeia removendo `x-notificacoes-tentativa`/`x-notificacoes-categoria` antes de publicar o mesmo payload/ID no canal original; preservar o marcador de sucesso continua obrigatório. O teste de infraestrutura sem consumidores continua verificando a DLX nativa, enquanto os testes da aplicação verificam o encaminhamento confirmado.
+
+Detalhes: [implementação](docs/tasks/ms-not-08-retries-dlq.md) e [evidências](docs/testes/ms-not-08-retries-dlq.md). Referências: [confirms e returns no Spring AMQP](https://github.com/spring-projects/spring-amqp-samples/tree/main/spring-rabbit-confirms-returns) e [dead lettering seguro em quorum queues](https://www.rabbitmq.com/docs/4.1/quorum-queues).

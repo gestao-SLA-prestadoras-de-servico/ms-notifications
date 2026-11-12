@@ -56,10 +56,15 @@ class ConsumoInternoRabbitMQIT {
         properties.add("spring.jpa.properties.hibernate.default_schema", () -> SCHEMA);
         properties.add("spring.datasource.hikari.connection-init-sql", () -> "SET search_path TO " + SCHEMA);
         properties.add("notificacoes.filas.interna", () -> INTERNA);
+        properties.add("notificacoes.retry.exchange", () -> EXCHANGE + ".retry");
+        properties.add("notificacoes.retry.dlx", () -> EXCHANGE + ".dlx");
     }
 
     @TestConfiguration
     static class TopologiaTeste {
+        @Bean
+        Declarables retries() { return TopologiaRetryTeste.criar(EXCHANGE, 2000); }
+
         @Bean
         Declarables filasDeTeste() {
             var exchange = new DirectExchange(EXCHANGE, false, false);
@@ -146,7 +151,7 @@ class ConsumoInternoRabbitMQIT {
     @Test
     void falhaNoSegundoDestinatarioReverteTudoEReentregaDepoisDaRecuperacao() throws Exception {
         jdbc.execute("create sequence tentativas");
-        jdbc.execute("create function falhar_destinatario() returns trigger language plpgsql as $$ begin if new.destinatario_sub='sub-2' then perform nextval('tentativas'); raise exception 'Falha simulada'; end if; return new; end; $$");
+        jdbc.execute("create function falhar_destinatario() returns trigger language plpgsql as $$ begin if new.destinatario_sub='sub-2' then perform nextval('tentativas'); raise exception 'Falha simulada' using errcode='40001'; end if; return new; end; $$");
         jdbc.execute("create trigger falhar_insert before insert on notificacao_interna for each row execute function falhar_destinatario()");
         try {
             var event = evento(TipoEvento.ATRIBUICAO);
@@ -156,7 +161,7 @@ class ConsumoInternoRabbitMQIT {
             container().stop();
             assertThat(notificacoes.count()).isZero();
             assertThat(processados.count()).isZero();
-            assertThat(admin.getQueueInfo(INTERNA).getMessageCount()).isEqualTo(1);
+            await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(admin.getQueueInfo(INTERNA).getMessageCount() + admin.getQueueInfo(EXCHANGE + ".retry.interna.1").getMessageCount() + admin.getQueueInfo(EXCHANGE + ".retry.interna.2").getMessageCount()).isEqualTo(1));
         } finally {
             jdbc.execute("drop trigger falhar_insert on notificacao_interna");
             jdbc.execute("drop function falhar_destinatario()");
@@ -179,7 +184,7 @@ class ConsumoInternoRabbitMQIT {
         Message dead = rabbit.receive(DLQ);
         assertThat(dead).isNotNull();
         assertThat(dead.getBody()).isEqualTo(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        assertThat(dead.getMessageProperties().getXDeathHeader().getFirst().get("reason").toString()).isEqualTo("rejected");
+        assertThat(dead.getMessageProperties().getHeaders().get(ProcessadorEntrega.CATEGORIA)).isEqualTo("DEFINITIVA");
         assertThat(notificacoes.count()).isZero();
         assertThat(processados.count()).isZero();
     }

@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import math
 
 
 def main():
@@ -14,9 +15,18 @@ def main():
     if not user or not password or not vhost:
         raise ValueError("Credenciais e vhost não podem ser vazios")
     definitions = json.loads(Path("/topologia.json").read_text(encoding="utf-8"))
-    for section in ("exchanges", "queues", "bindings"):
-        for item in definitions[section]:
+    for section in ("exchanges", "queues", "bindings", "policies"):
+        for item in definitions.get(section, []):
             item["vhost"] = vhost
+    initial = int(os.environ.get("RETRY_INITIAL_INTERVAL_MS", "1000"))
+    multiplier = float(os.environ.get("RETRY_MULTIPLIER", "2"))
+    maximum = int(os.environ.get("RETRY_MAX_INTERVAL_MS", "30000"))
+    if initial <= 0 or maximum < initial or not math.isfinite(multiplier) or multiplier <= 1:
+        raise ValueError("Backoff exige intervalo positivo, multiplicador maior que 1 e máximo >= inicial")
+    for policy in definitions["policies"]:
+        if policy["name"].startswith("notificacoes-retry-"):
+            stage = int(policy["name"].rsplit("-", 1)[1])
+            policy["definition"]["message-ttl"] = min(maximum, round(initial * multiplier ** (stage - 1)))
     salt = secrets.token_bytes(4)
     password_hash = base64.b64encode(
         salt + hashlib.sha256(salt + password.encode("utf-8")).digest()

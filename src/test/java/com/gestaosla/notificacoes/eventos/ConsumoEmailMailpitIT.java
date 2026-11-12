@@ -70,10 +70,15 @@ class ConsumoEmailMailpitIT {
         properties.add("spring.datasource.hikari.connection-init-sql", () -> "SET search_path TO " + SCHEMA);
         properties.add("notificacoes.filas.email", () -> EMAIL);
         properties.add("notificacoes.filas.interna", () -> INTERNA);
+        properties.add("notificacoes.retry.exchange", () -> EXCHANGE + ".retry");
+        properties.add("notificacoes.retry.dlx", () -> EXCHANGE + ".dlx");
     }
 
     @TestConfiguration
     static class TopologiaTeste {
+        @Bean
+        Declarables retries() { return TopologiaRetryTeste.criar(EXCHANGE, 2000); }
+
         @Bean
         Declarables filasEmailTeste() {
             var exchange = new DirectExchange(EXCHANGE, false, false);
@@ -195,7 +200,7 @@ class ConsumoEmailMailpitIT {
         }
         publicar(event, "email");
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(admin.getQueueInfo(DLQ).getMessageCount()).isEqualTo(1));
-        assertThat(rabbit.receive(DLQ).getMessageProperties().getXDeathHeader().getFirst().get("reason").toString()).isEqualTo("rejected");
+        assertThat(rabbit.receive(DLQ).getMessageProperties().getHeaders().get(ProcessadorEntrega.CATEGORIA)).isEqualTo("DEFINITIVA");
         assertThat(capturados()).isEmpty();
         assertThat(processados.count()).isZero();
         verify(sender, never()).send(org.mockito.ArgumentMatchers.any(jakarta.mail.internet.MimeMessage.class));
@@ -217,7 +222,7 @@ class ConsumoEmailMailpitIT {
         email().stop();
         assertThat(processados.existsByEventoIdAndCanal(eventoId, CanalNotificacao.EMAIL)).isFalse();
         assertThat(capturados()).isEmpty();
-        assertThat(admin.getQueueInfo(EMAIL).getMessageCount()).isEqualTo(1);
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(admin.getQueueInfo(EMAIL).getMessageCount() + admin.getQueueInfo(EXCHANGE + ".retry.email.1").getMessageCount() + admin.getQueueInfo(EXCHANGE + ".retry.email.2").getMessageCount()).isEqualTo(1));
         sender.setPort(smtpPort);
         email().start();
         aguardarEnvio(1);

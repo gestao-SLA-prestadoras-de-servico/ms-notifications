@@ -17,6 +17,15 @@
       "auto_delete": false,
       "internal": false,
       "arguments": {}
+    },
+    {
+      "name": "notificacoes.retry",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
     }
   ],
   "queues": [
@@ -61,6 +70,78 @@
         "x-queue-type": "classic",
         "x-message-ttl": 604800000
       }
+    },
+    {
+      "name": "notificacoes.retry.email.1",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "notificacoes",
+        "x-dead-letter-routing-key": "email",
+        "x-overflow": "reject-publish"
+      }
+    },
+    {
+      "name": "notificacoes.retry.email.2",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "notificacoes",
+        "x-dead-letter-routing-key": "email",
+        "x-overflow": "reject-publish"
+      }
+    },
+    {
+      "name": "notificacoes.retry.email.3",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "notificacoes",
+        "x-dead-letter-routing-key": "email",
+        "x-overflow": "reject-publish"
+      }
+    },
+    {
+      "name": "notificacoes.retry.interna.1",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "notificacoes",
+        "x-dead-letter-routing-key": "interna",
+        "x-overflow": "reject-publish"
+      }
+    },
+    {
+      "name": "notificacoes.retry.interna.2",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "notificacoes",
+        "x-dead-letter-routing-key": "interna",
+        "x-overflow": "reject-publish"
+      }
+    },
+    {
+      "name": "notificacoes.retry.interna.3",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "notificacoes",
+        "x-dead-letter-routing-key": "interna",
+        "x-overflow": "reject-publish"
+      }
     }
   ],
   "bindings": [
@@ -95,6 +176,92 @@
       "destination_type": "queue",
       "routing_key": "interna",
       "arguments": {}
+    },
+    {
+      "source": "notificacoes.retry",
+      "vhost": "/",
+      "destination": "notificacoes.retry.email.1",
+      "destination_type": "queue",
+      "routing_key": "email.1",
+      "arguments": {}
+    },
+    {
+      "source": "notificacoes.retry",
+      "vhost": "/",
+      "destination": "notificacoes.retry.email.2",
+      "destination_type": "queue",
+      "routing_key": "email.2",
+      "arguments": {}
+    },
+    {
+      "source": "notificacoes.retry",
+      "vhost": "/",
+      "destination": "notificacoes.retry.email.3",
+      "destination_type": "queue",
+      "routing_key": "email.3",
+      "arguments": {}
+    },
+    {
+      "source": "notificacoes.retry",
+      "vhost": "/",
+      "destination": "notificacoes.retry.interna.1",
+      "destination_type": "queue",
+      "routing_key": "interna.1",
+      "arguments": {}
+    },
+    {
+      "source": "notificacoes.retry",
+      "vhost": "/",
+      "destination": "notificacoes.retry.interna.2",
+      "destination_type": "queue",
+      "routing_key": "interna.2",
+      "arguments": {}
+    },
+    {
+      "source": "notificacoes.retry",
+      "vhost": "/",
+      "destination": "notificacoes.retry.interna.3",
+      "destination_type": "queue",
+      "routing_key": "interna.3",
+      "arguments": {}
+    }
+  ],
+  "policies": [
+    {
+      "name": "notificacoes-retry-1",
+      "vhost": "/",
+      "pattern": "\\.retry\\.(email|interna)\\.1$",
+      "priority": 10,
+      "apply-to": "quorum_queues",
+      "definition": {
+        "dead-letter-strategy": "at-least-once",
+        "overflow": "reject-publish",
+        "message-ttl": 1000
+      }
+    },
+    {
+      "name": "notificacoes-retry-2",
+      "vhost": "/",
+      "pattern": "\\.retry\\.(email|interna)\\.2$",
+      "priority": 10,
+      "apply-to": "quorum_queues",
+      "definition": {
+        "dead-letter-strategy": "at-least-once",
+        "overflow": "reject-publish",
+        "message-ttl": 2000
+      }
+    },
+    {
+      "name": "notificacoes-retry-3",
+      "vhost": "/",
+      "pattern": "\\.retry\\.(email|interna)\\.3$",
+      "priority": 10,
+      "apply-to": "quorum_queues",
+      "definition": {
+        "dead-letter-strategy": "at-least-once",
+        "overflow": "reject-publish",
+        "message-ttl": 4000
+      }
     }
   ]
 }
