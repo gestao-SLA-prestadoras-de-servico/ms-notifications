@@ -15,6 +15,7 @@ services:
       RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
+      PROCESSAMENTO_LOCK_TIMEOUT: ${PROCESSAMENTO_LOCK_TIMEOUT:-10s}
     ports:
       - "127.0.0.1::8081"
     depends_on:

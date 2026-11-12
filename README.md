@@ -92,7 +92,7 @@ Os identificadores recebidos são strings opacas, inclusive o `eventoId` determi
 
 Os índices atendem consulta por destinatário com ordenação `criado_em DESC, id DESC`, contagem de não lidas (índice parcial) e futuro expurgo por data de criação. O banco rejeita duplicações, campos obrigatórios nulos/vazios, tipos de e-mail em notificações internas, canais desconhecidos e leitura anterior à criação.
 
-Não há chave estrangeira entre as duas tabelas: apagar uma notificação não apaga seu marcador de sucesso. Também não há colunas para e-mail, texto de posicionamento ou payload. O marcador representa sucesso do **evento inteiro no canal**, incluindo todos os destinatários internos. A coordenação concorrente e a transação de processamento serão implementadas na MS-NOT-05; esta task fornece a estrutura e as restrições, sem registrar eventos antes do sucesso. O expurgo automático de 90 dias pertence à MS-NOT-12.
+Não há chave estrangeira entre as duas tabelas: apagar uma notificação não apaga seu marcador de sucesso. Também não há colunas para e-mail, texto de posicionamento ou payload. O marcador representa sucesso do **evento inteiro no canal**, incluindo todos os destinatários internos. A coordenação concorrente é feita pelo processador da MS-NOT-05, descrito abaixo. O expurgo automático de 90 dias pertence à MS-NOT-12.
 
 Para atualizar uma instalação existente, execute `docker compose up -d --build --wait`. A V1 cria as tabelas num banco vazio, inclusive no banco provisionado pela MS-NOT-03 que ainda não tenha tabelas. Não habilite `baseline-on-migrate` nem apague dados para contornar divergências em um schema já preenchido. Depois de aplicada, uma migration deve permanecer imutável; alterações futuras entram em V2, V3 etc.
 
@@ -113,3 +113,36 @@ Remove-Item Env:POSTGRES_LOCAL_PORT
 Esse comando inicia somente PostgreSQL e o runner de testes; não requer Java/Python no host. O runner mantém um volume de cache Maven. Para executar com Java 21 no host, defina `IT_DB_URL`, `IT_DB_USERNAME` e `IT_DB_PASSWORD` apontando a um banco PostgreSQL de testes e rode `mvnw.cmd -Ppostgres-it verify` (Linux/macOS: `./mvnw -Ppostgres-it verify`). O perfil falha se o banco não estiver disponível; não substitui PostgreSQL por H2.
 
 Detalhes e resultados: [implementação](docs/tasks/ms-not-04-banco-flyway.md) e [testes](docs/testes/ms-not-04-banco-flyway.md). Referência de configuração: [inicialização de banco no Spring Boot](https://docs.spring.io/spring-boot/how-to/data-initialization.html).
+
+## Idempotência e concorrência — MS-NOT-05
+
+`ProcessadorEventoIdempotente.processar(eventoId, canal, acao)` coordena o processamento com um advisory lock **transacional** do PostgreSQL por evento/canal. A ordem é: adquirir lock, consultar sucesso, executar a ação síncrona, inserir o marcador de sucesso e confirmar a transação. Se já houver sucesso, retorna `JA_PROCESSADO` sem chamar a ação. Caso contrário, retorna `PROCESSADO` somente depois do commit.
+
+Cada chamada usa uma transação nova `READ_COMMITTED`. Isso garante que a consulta após esperar o lock veja o commit da instância anterior e que o retorno represente commit concluído, mesmo se o chamador tiver uma transação externa. A ação deve usar os repositórios no mesmo thread e participar dessa transação (`REQUIRED`), propagando falhas; não deve abrir transações independentes ou executar efeitos assíncronos. Assim, todas as notificações dos destinatários e o marcador são confirmados juntos. As restrições únicas da V1 continuam protegendo evento/destinatário e evento/canal.
+
+O lock é liberado automaticamente no commit/rollback. `PROCESSAMENTO_LOCK_TIMEOUT` limita a espera (padrão `10s`, sintaxe PostgreSQL); timeout/falha não grava sucesso. A chave usa hash de 64 bits da identidade completa com prefixo do serviço. Uma colisão de hash apenas serializa eventos distintos: a consulta de sucesso continua usando evento/canal completos. Eventos diferentes e canais diferentes podem processar em paralelo.
+
+Os consumidores das MS-NOT-06/MS-NOT-07 devem chamar `ProcessadorMensagemNotificacao.processar(mensagem, channel, canal, acao)`. O adaptador valida o contrato/canal, chama o coordenador e executa `basicAck(deliveryTag, false)` no canal de origem depois do commit, inclusive nas repetições já processadas. Os containers Spring AMQP simple/direct usam ACK manual. Ainda não há listeners automáticos nesta etapa; a ação concreta de cada canal será conectada nas tasks de consumo.
+
+Falhas de validação, ação, lock, persistência ou commit são propagadas **sem ACK**. O chamador deve encaminhar a falha ao tratamento do listener; fechar/perder o canal permite a reentrega. A política de retries/NACK/DLQ será implementada na MS-NOT-08. Uma falha no próprio ACK também é propagada: se o broker reentregar após o commit, o marcador evita repetir a ação. Não há ACK antecipado nem confirmação em lote.
+
+O app-principal deve preservar `eventoId` **e o conjunto de destinatários** nas republicações. Todos os destinatários internos fazem parte do mesmo processamento; uma notificação por evento/sub é protegida no banco. Uma mensagem que reutilize um ID já concluído com destinatários diferentes será reconhecida como repetição. Os marcadores não são removidos quando notificações são excluídas.
+
+**Limite SMTP:** o envio de e-mail não participa da transação PostgreSQL. Se o SMTP aceitar a mensagem e a aplicação cair ou o commit falhar antes de registrar o sucesso, a reentrega poderá enviar o e-mail novamente. O lock impede envios simultâneos pelo mesmo evento/canal, mas não elimina essa janela. Gravar o sucesso antes do envio criaria risco de perda e viola RN-55. Não há promessa de entrega exatamente uma vez por SMTP; em eventos com vários endereços, uma falha parcial também pode repetir os envios já aceitos. E-mail e texto do posicionamento não são gravados no banco ou em logs pelo coordenador.
+
+### Testes com PostgreSQL e RabbitMQ
+
+O perfil `postgres-it` continua executando os testes de banco, agora incluindo concorrência. O perfil **`mensageria-it`** executa esses testes e a suíte de ACK/reentrega com RabbitMQ real (não combine os dois perfis). Com `.env` configurado:
+
+```powershell
+$env:POSTGRES_LOCAL_PORT = '25432'
+$env:RABBITMQ_LOCAL_PORT = '25672'
+$env:RABBITMQ_MANAGEMENT_LOCAL_PORT = '25673'
+docker compose -p ms-not-05-test -f compose.yaml -f infra/compose.postgres-it.yaml -f infra/compose.mensageria-it.yaml run --build --rm postgres-it
+docker compose -p ms-not-05-test -f compose.yaml -f infra/compose.postgres-it.yaml -f infra/compose.mensageria-it.yaml down
+Remove-Item Env:POSTGRES_LOCAL_PORT, Env:RABBITMQ_LOCAL_PORT, Env:RABBITMQ_MANAGEMENT_LOCAL_PORT
+```
+
+O runner inicia somente PostgreSQL, RabbitMQ e seu init, usa schemas aleatórios e filas temporárias exclusivas e preserva os volumes ao encerrar. No host, o perfil `mensageria-it` requer as variáveis `IT_DB_*` descritas acima e `IT_RABBITMQ_HOST`, `IT_RABBITMQ_USERNAME`, `IT_RABBITMQ_PASSWORD`, com `IT_RABBITMQ_PORT`/`IT_RABBITMQ_VHOST` opcionais (padrões `5672`/`/`).
+
+Detalhes: [implementação](docs/tasks/ms-not-05-idempotencia-concorrencia.md) e [evidências](docs/testes/ms-not-05-idempotencia-concorrencia.md). Referências: [locks transacionais PostgreSQL](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS) e [confirmações RabbitMQ](https://www.rabbitmq.com/docs/confirms).
