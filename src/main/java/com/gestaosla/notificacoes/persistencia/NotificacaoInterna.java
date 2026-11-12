@@ -12,6 +12,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "notificacao_interna")
@@ -67,4 +68,19 @@ public class NotificacaoInterna {
     public String getTitulo() { return titulo; }
     public Instant getCriadoEm() { return criadoEm; }
     public Instant getLidaEm() { return lidaEm; }
+
+    /** Texto simples derivado dos dados persistidos; não acrescenta coluna ao schema. */
+    @Transient
+    public String getMensagem() {
+        String chamado = "chamado " + numeroChamado + " — " + titulo;
+        return switch (tipo) {
+            case ATRIBUICAO -> "Você foi atribuído ao " + chamado + ".";
+            case REATRIBUICAO -> "O " + chamado + " foi reatribuído a você.";
+            case REMOCAO -> "Você foi removido do " + chamado + ".";
+            case REABERTURA -> "O " + chamado + " foi reaberto.";
+            case CONCLUSAO -> "O atendimento do " + chamado + " foi concluído.";
+            case VIOLACAO_SLA -> "O " + chamado + " teve um prazo de SLA violado.";
+            default -> throw new IllegalStateException("Tipo incompatível com notificação interna");
+        };
+    }
 }

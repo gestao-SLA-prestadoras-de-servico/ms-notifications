@@ -5,6 +5,7 @@ Não executa purge nem remove volumes; recusa filas que já contenham mensagens.
 """
 import base64
 import json
+import os
 from pathlib import Path
 import smtplib
 import subprocess
@@ -18,7 +19,9 @@ COMPOSE = ["docker", "compose", "-p", "ms-not-03-test"]
 
 
 def compose(*args):
-    return subprocess.check_output(COMPOSE + list(args), cwd=ROOT, text=True).strip()
+    # O teste de topologia precisa observar mensagens pendentes, sem consumidor concorrendo.
+    env = dict(os.environ, CONSUMIDOR_INTERNO_ENABLED="false")
+    return subprocess.check_output(COMPOSE + list(args), cwd=ROOT, text=True, env=env).strip()
 
 
 def address(service, port, index=1):
@@ -37,6 +40,7 @@ def eventually(check, timeout=120):
 
 
 def main():
+    compose("up", "-d", "--wait", "--wait-timeout", "240", "ms-notificacoes")
     config = json.loads(compose("config", "--format", "json"))
     env = config["services"]["ms-notificacoes"]["environment"]
     credentials = base64.b64encode(

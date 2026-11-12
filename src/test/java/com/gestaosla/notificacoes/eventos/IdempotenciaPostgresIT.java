@@ -28,6 +28,7 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest(properties = {
+        "notificacoes.consumidor-interno.enabled=false",
         "spring.datasource.url=${IT_DB_URL}", "spring.datasource.username=${IT_DB_USERNAME}",
         "spring.datasource.password=${IT_DB_PASSWORD}", "spring.rabbitmq.username=test", "spring.rabbitmq.password=test"
 })

@@ -10,7 +10,7 @@ Serviço independente de notificações do FlowSLA. O app-principal publica even
 
 Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./mvnw test` para compilar e executar os testes. A porta padrão é 8081 e o endpoint de saúde é `/actuator/health`; sua resposta reflete a disponibilidade das dependências monitoradas.
 
-A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Por enquanto, somente a saúde está acessível: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker e o schema pelo Flyway. Consumidores e API de notificações pertencem às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md).
+A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. O consumidor interno está ativo; e-mails e API de notificações pertencem às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md). Somente a saúde está acessível por HTTP: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
 
 Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
 
@@ -75,7 +75,7 @@ python infra/smoke_test.py
 docker compose -p ms-not-03-test down
 ```
 
-O script confere topologia/TTL de sete dias, roteamento dos dois canais, mensagens persistentes após restart e recriação, rejeição para cada DLQ, acesso ao banco, captura SMTP no Mailpit e saúde das quatro réplicas. A retenção de sete dias é conferida na configuração efetiva do broker; o teste não espera sete dias. O build roda também a suíte Java. Resultados desta implementação estão em [docs/testes/ms-not-03-docker-rabbitmq.md](docs/testes/ms-not-03-docker-rabbitmq.md).
+O script desativa o consumidor interno somente na stack descartável `ms-not-03-test` para observar mensagens pendentes durante os testes de infraestrutura. Ele confere topologia/TTL de sete dias, roteamento dos dois canais, mensagens persistentes após restart e recriação, rejeição para cada DLQ, acesso ao banco, captura SMTP no Mailpit e saúde das quatro réplicas. A retenção de sete dias é conferida na configuração efetiva do broker; o teste não espera sete dias. O build roda também a suíte Java. Resultados desta implementação estão em [docs/testes/ms-not-03-docker-rabbitmq.md](docs/testes/ms-not-03-docker-rabbitmq.md).
 
 Referências: [importação de definições RabbitMQ](https://www.rabbitmq.com/docs/definitions), [durabilidade e confirmação de publicação](https://www.rabbitmq.com/docs/confirms), [health checks Mailpit](https://mailpit.axllent.org/docs/integration/healthcheck/) e [rede/escala no Compose](https://docs.docker.com/compose/how-tos/networking/).
 
@@ -122,9 +122,9 @@ Cada chamada usa uma transação nova `READ_COMMITTED`. Isso garante que a consu
 
 O lock é liberado automaticamente no commit/rollback. `PROCESSAMENTO_LOCK_TIMEOUT` limita a espera (padrão `10s`, sintaxe PostgreSQL); timeout/falha não grava sucesso. A chave usa hash de 64 bits da identidade completa com prefixo do serviço. Uma colisão de hash apenas serializa eventos distintos: a consulta de sucesso continua usando evento/canal completos. Eventos diferentes e canais diferentes podem processar em paralelo.
 
-Os consumidores das MS-NOT-06/MS-NOT-07 devem chamar `ProcessadorMensagemNotificacao.processar(mensagem, channel, canal, acao)`. O adaptador valida o contrato/canal, chama o coordenador e executa `basicAck(deliveryTag, false)` no canal de origem depois do commit, inclusive nas repetições já processadas. Os containers Spring AMQP simple/direct usam ACK manual. Ainda não há listeners automáticos nesta etapa; a ação concreta de cada canal será conectada nas tasks de consumo.
+Os consumidores chamam `ProcessadorMensagemNotificacao.processar(mensagem, channel, canal, acao)`. O adaptador valida o contrato/canal, chama o coordenador e executa `basicAck(deliveryTag, false)` no canal de origem depois do commit, inclusive nas repetições já processadas. Os containers Spring AMQP simple/direct usam ACK manual. O consumidor interno está conectado na MS-NOT-06; e-mails serão conectados na MS-NOT-07.
 
-Falhas de validação, ação, lock, persistência ou commit são propagadas **sem ACK**. O chamador deve encaminhar a falha ao tratamento do listener; fechar/perder o canal permite a reentrega. A política de retries/NACK/DLQ será implementada na MS-NOT-08. Uma falha no próprio ACK também é propagada: se o broker reentregar após o commit, o marcador evita repetir a ação. Não há ACK antecipado nem confirmação em lote.
+Falhas de validação, ação, lock, persistência ou commit são propagadas pelo adaptador **sem ACK**. O listener interno rejeita mensagens inválidas sem requeue (DLQ) e solicita reentrega nas falhas de processamento. A política com classificação de falhas, limite e backoff será implementada na MS-NOT-08. Uma falha no próprio ACK também é propagada: se o broker reentregar após o commit, o marcador evita repetir a ação. Não há ACK antecipado nem confirmação em lote.
 
 O app-principal deve preservar `eventoId` **e o conjunto de destinatários** nas republicações. Todos os destinatários internos fazem parte do mesmo processamento; uma notificação por evento/sub é protegida no banco. Uma mensagem que reutilize um ID já concluído com destinatários diferentes será reconhecida como repetição. Os marcadores não são removidos quando notificações são excluídas.
 
@@ -146,3 +146,33 @@ Remove-Item Env:POSTGRES_LOCAL_PORT, Env:RABBITMQ_LOCAL_PORT, Env:RABBITMQ_MANAG
 O runner inicia somente PostgreSQL, RabbitMQ e seu init, usa schemas aleatórios e filas temporárias exclusivas e preserva os volumes ao encerrar. No host, o perfil `mensageria-it` requer as variáveis `IT_DB_*` descritas acima e `IT_RABBITMQ_HOST`, `IT_RABBITMQ_USERNAME`, `IT_RABBITMQ_PASSWORD`, com `IT_RABBITMQ_PORT`/`IT_RABBITMQ_VHOST` opcionais (padrões `5672`/`/`).
 
 Detalhes: [implementação](docs/tasks/ms-not-05-idempotencia-concorrencia.md) e [evidências](docs/testes/ms-not-05-idempotencia-concorrencia.md). Referências: [locks transacionais PostgreSQL](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS) e [confirmações RabbitMQ](https://www.rabbitmq.com/docs/confirms).
+
+## Consumo interno — MS-NOT-06
+
+`ConsumidorNotificacaoInterna` inicia automaticamente na fila `notificacoes.interna`. Ele valida o payload e o canal pelo leitor da MS-NOT-02 e executa `PersistidorNotificacaoInterna` dentro do coordenador da MS-NOT-05. A transação grava uma notificação por `sub` distinto recebido e um único marcador de sucesso do evento/canal. Todos os destinatários recebem o mesmo instante de criação, obtido do `Clock`, e leitura inicial nula. O ACK individual ocorre depois do commit. Republicações não recriam notificações, inclusive após sua exclusão.
+
+| Tipo | Mensagem em texto simples |
+|---|---|
+| `ATRIBUICAO` | Você foi atribuído ao chamado {número} — {título}. |
+| `REATRIBUICAO` | O chamado {número} — {título} foi reatribuído a você. |
+| `REMOCAO` | Você foi removido do chamado {número} — {título}. |
+| `REABERTURA` | O chamado {número} — {título} foi reaberto. |
+| `CONCLUSAO` | O atendimento do chamado {número} — {título} foi concluído. |
+| `VIOLACAO_SLA` | O chamado {número} — {título} teve um prazo de SLA violado. |
+
+O texto é calculado por `NotificacaoInterna.getMensagem()` com os campos persistidos (`@Transient`); não há coluna redundante nem alteração na V1. O título original é preservado. A futura API poderá expor esse texto; o frontend deverá tratá-lo como texto, sem interpretar HTML fornecido no título.
+
+O consumidor não consulta backend, Keycloak ou SMTP. O produtor é responsável por selecionar gestores/técnicos conforme as regras e, na inativação, enviar somente o substituto em `REATRIBUICAO`, sem emitir `REMOCAO` para o inativado. Uma notificação de remoção mantém a referência do chamado para identificação e não concede acesso a ele; a autorização continua responsabilidade do app-principal. Destinatários repetidos na mesma lista são consolidados pelo `sub`, sem normalizar ou modificar identificadores opacos.
+
+Mensagens inválidas, desconhecidas ou de e-mail recebidas na fila interna são rejeitadas com `requeue=false`, seguindo a DLX configurada no broker. Falhas de processamento/banco provocam rollback e NACK individual com `requeue=true`. O tratamento atual não tem limite de tentativas nem backoff: uma falha persistente pode causar reentregas contínuas até a implementação da MS-NOT-08. Falhas de I/O no ACK são propagadas para recuperação do canal; o marcador já confirmado protege a próxima entrega. Os logs do listener não incluem corpo, e-mail, posicionamento ou stack trace contendo payload.
+
+Variáveis novas:
+
+- `CONSUMIDOR_INTERNO_ENABLED` (padrão `true`): permite desativar o listener, por exemplo em testes de infraestrutura.
+- `NOTIFICACOES_FILA_INTERNA` (padrão `notificacoes.interna`): permite apontar para fila equivalente já provisionada; alterar esse valor não cria automaticamente filas/bindings.
+
+Para aplicar, use `docker compose up -d --build --wait`. Isso habilita o consumidor interno na stack; a fila de e-mail continua sem consumidor até a MS-NOT-07. Nenhum ajuste no backend ou no modo de integração entre os dois Composes faz parte desta task.
+
+A suíte `mensageria-it` agora inicia o listener Spring real em filas exclusivas dos testes, com três consumidores, além dos testes anteriores. O perfil `postgres-it` e o teste H2 deixam o listener desligado. Para repetir a validação, use os comandos de mensageria acima trocando o projeto por `ms-not-06-test`.
+
+Detalhes: [implementação](docs/tasks/ms-not-06-consumo-interno.md) e [testes](docs/testes/ms-not-06-consumo-interno.md).
