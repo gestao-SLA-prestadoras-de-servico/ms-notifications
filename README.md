@@ -451,3 +451,13 @@ Para validar interrupções reais de processos, com Java 21 e Docker, execute:
 Linux/macOS: `./mvnw -B -Presiliencia-it verify`. A suíte inicia o JAR empacotado, PostgreSQL, RabbitMQ e Mailpit em containers descartáveis próprios. Pausa SMTP, interrompe banco/serviço, reinicia o broker e comprova a reentrega após uma JVM cair entre commit e ACK. As evidências de filas, métricas e resultados ficam em `target/ms-not-15/<execucao>/`. O encerramento remove os recursos temporários, incluindo seus dados sintéticos.
 
 Use esse perfil separadamente de `completo-it` e dos runners Compose. Não requer `.env` nem modifica a stack local. O cenário com outbox do produtor depende da implementação desse módulo no backend, que ainda contém apenas a estrutura de pacotes na versão consultada. Detalhes: [implementação](docs/tasks/ms-not-15-recuperacao-isolamento.md) e [testes](docs/testes/ms-not-15-recuperacao-isolamento.md).
+
+## Escalabilidade independente — MS-NOT-16
+
+```powershell
+.\mvnw.cmd -B -Pescala-it verify
+```
+
+Com Java 21 e Docker, o comando compara uma e quatro instâncias em infraestrutura temporária. A carga padrão tem 32 eventos únicos e oito repetições, com latência SMTP downstream de 100 ms via Toxiproxy. Executa duas medições por cenário (ordem 1–4–4–1), mantendo os recursos por instância e a infraestrutura compartilhada comparáveis. Verifica duplicações no banco e na captura SMTP, falhas e funcionamento do canal interno. Não exige um percentual de ganho para aprovar.
+
+Os dados ficam em `target/ms-not-16/<execucao>/`. O script `infra/relatorio_escala.py` gera CSV, relatório e gráficos; instruções de instalação e parâmetros estão no [relatório de testes](docs/testes/ms-not-16-escalabilidade.md). Metodologia e limites: [implementação](docs/tasks/ms-not-16-escalabilidade.md). Use esse perfil separadamente dos demais; a execução remove seus containers e dados sintéticos ao terminar.

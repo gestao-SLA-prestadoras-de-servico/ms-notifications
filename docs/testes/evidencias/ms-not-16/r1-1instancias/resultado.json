@@ -1,0 +1,13 @@
+{
+  "repeticao" : 1,
+  "instancias" : 1,
+  "drenagemMs" : 24494,
+  "vazaoEmailsPorSegundo" : 1.306442394055687,
+  "falhas" : 0.0,
+  "emailsCapturados" : 32,
+  "duplicacoesSmtp" : 0,
+  "marcadoresEmail" : 32,
+  "reentregasDescartadas" : 8.0,
+  "latenciaInternaObservadaMs" : 140,
+  "processadosIncluindoAquecimentoPorInstancia" : [ 40.0 ]
+}

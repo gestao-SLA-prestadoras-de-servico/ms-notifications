@@ -1,0 +1,505 @@
+[ {
+  "pendentes" : 40.0,
+  "tempoMs" : 140,
+  "entregas" : 0.0,
+  "confirmados" : 0,
+  "cpuPorInstancia" : [ 0.575 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 40.0,
+  "tempoMs" : 467,
+  "entregas" : 0.0,
+  "confirmados" : 0,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 40.0,
+  "tempoMs" : 781,
+  "entregas" : 0.0,
+  "confirmados" : 0,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 38.0,
+  "tempoMs" : 1086,
+  "entregas" : 2.0,
+  "confirmados" : 1,
+  "cpuPorInstancia" : [ 0.5 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 38.0,
+  "tempoMs" : 1419,
+  "entregas" : 2.0,
+  "confirmados" : 1,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 37.0,
+  "tempoMs" : 1732,
+  "entregas" : 3.0,
+  "confirmados" : 2,
+  "cpuPorInstancia" : [ 0.225 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 37.0,
+  "tempoMs" : 2067,
+  "entregas" : 3.0,
+  "confirmados" : 2,
+  "cpuPorInstancia" : [ 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 37.0,
+  "tempoMs" : 2387,
+  "entregas" : 3.0,
+  "confirmados" : 2,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 36.0,
+  "tempoMs" : 2705,
+  "entregas" : 4.0,
+  "confirmados" : 3,
+  "cpuPorInstancia" : [ 0.3 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 36.0,
+  "tempoMs" : 3034,
+  "entregas" : 4.0,
+  "confirmados" : 3,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 35.0,
+  "tempoMs" : 3361,
+  "entregas" : 5.0,
+  "confirmados" : 4,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 35.0,
+  "tempoMs" : 3703,
+  "entregas" : 5.0,
+  "confirmados" : 4,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 33.0,
+  "tempoMs" : 4042,
+  "entregas" : 7.0,
+  "confirmados" : 5,
+  "cpuPorInstancia" : [ 0.3333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 33.0,
+  "tempoMs" : 4380,
+  "entregas" : 7.0,
+  "confirmados" : 5,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 33.0,
+  "tempoMs" : 4722,
+  "entregas" : 7.0,
+  "confirmados" : 6,
+  "cpuPorInstancia" : [ 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 32.0,
+  "tempoMs" : 5032,
+  "entregas" : 8.0,
+  "confirmados" : 6,
+  "cpuPorInstancia" : [ 0.3 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 32.0,
+  "tempoMs" : 5368,
+  "entregas" : 8.0,
+  "confirmados" : 6,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 31.0,
+  "tempoMs" : 5698,
+  "entregas" : 9.0,
+  "confirmados" : 7,
+  "cpuPorInstancia" : [ 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 31.0,
+  "tempoMs" : 6024,
+  "entregas" : 9.0,
+  "confirmados" : 7,
+  "cpuPorInstancia" : [ 0.36666666666666664 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 30.0,
+  "tempoMs" : 6329,
+  "entregas" : 10.0,
+  "confirmados" : 8,
+  "cpuPorInstancia" : [ 0.175 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 30.0,
+  "tempoMs" : 6634,
+  "entregas" : 10.0,
+  "confirmados" : 8,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 30.0,
+  "tempoMs" : 6963,
+  "entregas" : 10.0,
+  "confirmados" : 9,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 28.0,
+  "tempoMs" : 7278,
+  "entregas" : 12.0,
+  "confirmados" : 9,
+  "cpuPorInstancia" : [ 0.23333333333333334 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 28.0,
+  "tempoMs" : 7630,
+  "entregas" : 12.0,
+  "confirmados" : 9,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 27.0,
+  "tempoMs" : 7949,
+  "entregas" : 13.0,
+  "confirmados" : 10,
+  "cpuPorInstancia" : [ 0.225 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 27.0,
+  "tempoMs" : 8293,
+  "entregas" : 13.0,
+  "confirmados" : 10,
+  "cpuPorInstancia" : [ 0.26666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 26.0,
+  "tempoMs" : 8609,
+  "entregas" : 14.0,
+  "confirmados" : 11,
+  "cpuPorInstancia" : [ 0.36666666666666664 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 26.0,
+  "tempoMs" : 8923,
+  "entregas" : 14.0,
+  "confirmados" : 11,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 26.0,
+  "tempoMs" : 9255,
+  "entregas" : 14.0,
+  "confirmados" : 12,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 25.0,
+  "tempoMs" : 9586,
+  "entregas" : 15.0,
+  "confirmados" : 12,
+  "cpuPorInstancia" : [ 0.26666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 25.0,
+  "tempoMs" : 9908,
+  "entregas" : 15.0,
+  "confirmados" : 12,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 23.0,
+  "tempoMs" : 10238,
+  "entregas" : 17.0,
+  "confirmados" : 13,
+  "cpuPorInstancia" : [ 0.675 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 23.0,
+  "tempoMs" : 10562,
+  "entregas" : 17.0,
+  "confirmados" : 13,
+  "cpuPorInstancia" : [ 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 23.0,
+  "tempoMs" : 10887,
+  "entregas" : 17.0,
+  "confirmados" : 13,
+  "cpuPorInstancia" : [ 0.26666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 22.0,
+  "tempoMs" : 11201,
+  "entregas" : 18.0,
+  "confirmados" : 14,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 22.0,
+  "tempoMs" : 11519,
+  "entregas" : 18.0,
+  "confirmados" : 14,
+  "cpuPorInstancia" : [ 0.175 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 21.0,
+  "tempoMs" : 11849,
+  "entregas" : 19.0,
+  "confirmados" : 15,
+  "cpuPorInstancia" : [ 0.3333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 21.0,
+  "tempoMs" : 12182,
+  "entregas" : 19.0,
+  "confirmados" : 15,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 21.0,
+  "tempoMs" : 12542,
+  "entregas" : 19.0,
+  "confirmados" : 16,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 20.0,
+  "tempoMs" : 12861,
+  "entregas" : 20.0,
+  "confirmados" : 16,
+  "cpuPorInstancia" : [ 0.275 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 20.0,
+  "tempoMs" : 13197,
+  "entregas" : 20.0,
+  "confirmados" : 16,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 18.0,
+  "tempoMs" : 13503,
+  "entregas" : 22.0,
+  "confirmados" : 17,
+  "cpuPorInstancia" : [ 0.4 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 18.0,
+  "tempoMs" : 13812,
+  "entregas" : 22.0,
+  "confirmados" : 17,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 17.0,
+  "tempoMs" : 14110,
+  "entregas" : 23.0,
+  "confirmados" : 18,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 15.0,
+  "tempoMs" : 16000,
+  "entregas" : 25.0,
+  "confirmados" : 20,
+  "cpuPorInstancia" : [ 0.05625 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 13.0,
+  "tempoMs" : 16305,
+  "entregas" : 27.0,
+  "confirmados" : 21,
+  "cpuPorInstancia" : [ 0.4 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 13.0,
+  "tempoMs" : 16608,
+  "entregas" : 27.0,
+  "confirmados" : 21,
+  "cpuPorInstancia" : [ 0.06666666666666667 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 13.0,
+  "tempoMs" : 16904,
+  "entregas" : 27.0,
+  "confirmados" : 21,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 12.0,
+  "tempoMs" : 17200,
+  "entregas" : 28.0,
+  "confirmados" : 22,
+  "cpuPorInstancia" : [ 0.5333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 12.0,
+  "tempoMs" : 17500,
+  "entregas" : 28.0,
+  "confirmados" : 22,
+  "cpuPorInstancia" : [ 0.06666666666666667 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 11.0,
+  "tempoMs" : 17804,
+  "entregas" : 29.0,
+  "confirmados" : 23,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 11.0,
+  "tempoMs" : 18103,
+  "entregas" : 29.0,
+  "confirmados" : 23,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 11.0,
+  "tempoMs" : 18439,
+  "entregas" : 29.0,
+  "confirmados" : 23,
+  "cpuPorInstancia" : [ 0.05 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 10.0,
+  "tempoMs" : 18740,
+  "entregas" : 30.0,
+  "confirmados" : 24,
+  "cpuPorInstancia" : [ 0.23333333333333334 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 10.0,
+  "tempoMs" : 19054,
+  "entregas" : 30.0,
+  "confirmados" : 24,
+  "cpuPorInstancia" : [ 0.06666666666666667 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 8.0,
+  "tempoMs" : 19364,
+  "entregas" : 32.0,
+  "confirmados" : 25,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 8.0,
+  "tempoMs" : 19670,
+  "entregas" : 32.0,
+  "confirmados" : 25,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 7.0,
+  "tempoMs" : 19998,
+  "entregas" : 33.0,
+  "confirmados" : 26,
+  "cpuPorInstancia" : [ 0.23333333333333334 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 7.0,
+  "tempoMs" : 20318,
+  "entregas" : 33.0,
+  "confirmados" : 26,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 7.0,
+  "tempoMs" : 20660,
+  "entregas" : 33.0,
+  "confirmados" : 26,
+  "cpuPorInstancia" : [ 0.075 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 6.0,
+  "tempoMs" : 20977,
+  "entregas" : 34.0,
+  "confirmados" : 27,
+  "cpuPorInstancia" : [ 0.3 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 6.0,
+  "tempoMs" : 21290,
+  "entregas" : 34.0,
+  "confirmados" : 27,
+  "cpuPorInstancia" : [ 0.06666666666666667 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 5.0,
+  "tempoMs" : 21598,
+  "entregas" : 35.0,
+  "confirmados" : 28,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 5.0,
+  "tempoMs" : 21928,
+  "entregas" : 35.0,
+  "confirmados" : 28,
+  "cpuPorInstancia" : [ 0.03333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 3.0,
+  "tempoMs" : 22266,
+  "entregas" : 37.0,
+  "confirmados" : 29,
+  "cpuPorInstancia" : [ 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 3.0,
+  "tempoMs" : 22571,
+  "entregas" : 37.0,
+  "confirmados" : 29,
+  "cpuPorInstancia" : [ 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 3.0,
+  "tempoMs" : 22890,
+  "entregas" : 37.0,
+  "confirmados" : 29,
+  "cpuPorInstancia" : [ 0.06666666666666667 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 2.0,
+  "tempoMs" : 23209,
+  "entregas" : 38.0,
+  "confirmados" : 30,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 2.0,
+  "tempoMs" : 23535,
+  "entregas" : 38.0,
+  "confirmados" : 30,
+  "cpuPorInstancia" : [ 0.05 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 1.0,
+  "tempoMs" : 23871,
+  "entregas" : 39.0,
+  "confirmados" : 31,
+  "cpuPorInstancia" : [ 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 1.0,
+  "tempoMs" : 24193,
+  "entregas" : 39.0,
+  "confirmados" : 31,
+  "cpuPorInstancia" : [ 0.13333333333333333 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 0.0,
+  "tempoMs" : 24494,
+  "entregas" : 40.0,
+  "confirmados" : 32,
+  "cpuPorInstancia" : [ 0.06666666666666667 ],
+  "falhas" : 0.0
+} ]
