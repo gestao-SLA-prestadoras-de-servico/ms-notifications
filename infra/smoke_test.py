@@ -20,7 +20,7 @@ COMPOSE = ["docker", "compose", "-p", "ms-not-03-test"]
 
 def compose(*args):
     # O teste de topologia precisa observar mensagens pendentes, sem consumidor concorrendo.
-    env = dict(os.environ, CONSUMIDOR_INTERNO_ENABLED="false")
+    env = dict(os.environ, CONSUMIDOR_INTERNO_ENABLED="false", CONSUMIDOR_EMAIL_ENABLED="false")
     return subprocess.check_output(COMPOSE + list(args), cwd=ROOT, text=True, env=env).strip()
 
 

@@ -1,6 +1,6 @@
 # ms-notificacoes
 
-Serviço independente de notificações do FlowSLA. O app-principal publica eventos no RabbitMQ; futuramente este serviço consumirá as filas de e-mail e de notificações internas, usando seu próprio banco PostgreSQL. A API será consumida pelo frontend. Os serviços não compartilham banco nem consultam a API um do outro para compor notificações.
+Serviço independente de notificações do FlowSLA. Consome eventos de e-mail e de notificações internas no RabbitMQ, usando seu próprio banco PostgreSQL. A API de leitura será consumida pelo frontend. Os serviços não compartilham banco nem consultam a API um do outro para compor notificações. A conexão com o publicador do app-principal depende do alinhamento de contrato e infraestrutura entre os projetos.
 
 ## Requisitos e execução
 
@@ -10,7 +10,7 @@ Serviço independente de notificações do FlowSLA. O app-principal publica even
 
 Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./mvnw test` para compilar e executar os testes. A porta padrão é 8081 e o endpoint de saúde é `/actuator/health`; sua resposta reflete a disponibilidade das dependências monitoradas.
 
-A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. O consumidor interno está ativo; e-mails e API de notificações pertencem às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md). Somente a saúde está acessível por HTTP: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
+A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores estão ativos; a API de notificações pertence às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md). Somente a saúde está acessível por HTTP: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
 
 Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
 
@@ -75,7 +75,7 @@ python infra/smoke_test.py
 docker compose -p ms-not-03-test down
 ```
 
-O script desativa o consumidor interno somente na stack descartável `ms-not-03-test` para observar mensagens pendentes durante os testes de infraestrutura. Ele confere topologia/TTL de sete dias, roteamento dos dois canais, mensagens persistentes após restart e recriação, rejeição para cada DLQ, acesso ao banco, captura SMTP no Mailpit e saúde das quatro réplicas. A retenção de sete dias é conferida na configuração efetiva do broker; o teste não espera sete dias. O build roda também a suíte Java. Resultados desta implementação estão em [docs/testes/ms-not-03-docker-rabbitmq.md](docs/testes/ms-not-03-docker-rabbitmq.md).
+O script desativa os dois consumidores somente na stack descartável `ms-not-03-test` para observar mensagens pendentes durante os testes de infraestrutura. Ele confere topologia/TTL de sete dias, roteamento dos dois canais, mensagens persistentes após restart e recriação, rejeição para cada DLQ, acesso ao banco, captura SMTP no Mailpit e saúde das quatro réplicas. A retenção de sete dias é conferida na configuração efetiva do broker; o teste não espera sete dias. O build roda também a suíte Java. Resultados desta implementação estão em [docs/testes/ms-not-03-docker-rabbitmq.md](docs/testes/ms-not-03-docker-rabbitmq.md).
 
 Referências: [importação de definições RabbitMQ](https://www.rabbitmq.com/docs/definitions), [durabilidade e confirmação de publicação](https://www.rabbitmq.com/docs/confirms), [health checks Mailpit](https://mailpit.axllent.org/docs/integration/healthcheck/) e [rede/escala no Compose](https://docs.docker.com/compose/how-tos/networking/).
 
@@ -122,7 +122,7 @@ Cada chamada usa uma transação nova `READ_COMMITTED`. Isso garante que a consu
 
 O lock é liberado automaticamente no commit/rollback. `PROCESSAMENTO_LOCK_TIMEOUT` limita a espera (padrão `10s`, sintaxe PostgreSQL); timeout/falha não grava sucesso. A chave usa hash de 64 bits da identidade completa com prefixo do serviço. Uma colisão de hash apenas serializa eventos distintos: a consulta de sucesso continua usando evento/canal completos. Eventos diferentes e canais diferentes podem processar em paralelo.
 
-Os consumidores chamam `ProcessadorMensagemNotificacao.processar(mensagem, channel, canal, acao)`. O adaptador valida o contrato/canal, chama o coordenador e executa `basicAck(deliveryTag, false)` no canal de origem depois do commit, inclusive nas repetições já processadas. Os containers Spring AMQP simple/direct usam ACK manual. O consumidor interno está conectado na MS-NOT-06; e-mails serão conectados na MS-NOT-07.
+Os consumidores chamam `ProcessadorMensagemNotificacao.processar(mensagem, channel, canal, acao)`. O adaptador valida o contrato/canal, chama o coordenador e executa `basicAck(deliveryTag, false)` no canal de origem depois do commit, inclusive nas repetições já processadas. Os containers Spring AMQP simple/direct usam ACK manual. Os consumidores interno e de e-mail estão conectados desde as MS-NOT-06/MS-NOT-07.
 
 Falhas de validação, ação, lock, persistência ou commit são propagadas pelo adaptador **sem ACK**. O listener interno rejeita mensagens inválidas sem requeue (DLQ) e solicita reentrega nas falhas de processamento. A política com classificação de falhas, limite e backoff será implementada na MS-NOT-08. Uma falha no próprio ACK também é propagada: se o broker reentregar após o commit, o marcador evita repetir a ação. Não há ACK antecipado nem confirmação em lote.
 
@@ -143,7 +143,7 @@ docker compose -p ms-not-05-test -f compose.yaml -f infra/compose.postgres-it.ya
 Remove-Item Env:POSTGRES_LOCAL_PORT, Env:RABBITMQ_LOCAL_PORT, Env:RABBITMQ_MANAGEMENT_LOCAL_PORT
 ```
 
-O runner inicia somente PostgreSQL, RabbitMQ e seu init, usa schemas aleatórios e filas temporárias exclusivas e preserva os volumes ao encerrar. No host, o perfil `mensageria-it` requer as variáveis `IT_DB_*` descritas acima e `IT_RABBITMQ_HOST`, `IT_RABBITMQ_USERNAME`, `IT_RABBITMQ_PASSWORD`, com `IT_RABBITMQ_PORT`/`IT_RABBITMQ_VHOST` opcionais (padrões `5672`/`/`).
+O runner de mensageria inicia PostgreSQL, RabbitMQ, seu init e Mailpit, usa schemas aleatórios e filas temporárias exclusivas e preserva os volumes ao encerrar. No host, o perfil `mensageria-it` requer as variáveis `IT_DB_*` descritas acima, `IT_RABBITMQ_HOST`, `IT_RABBITMQ_USERNAME`, `IT_RABBITMQ_PASSWORD`, `IT_MAIL_HOST` e `IT_MAILPIT_URL`, com `IT_RABBITMQ_PORT`/`IT_RABBITMQ_VHOST`/`IT_MAIL_PORT` opcionais (padrões `5672`/`/`/`1025`).
 
 Detalhes: [implementação](docs/tasks/ms-not-05-idempotencia-concorrencia.md) e [evidências](docs/testes/ms-not-05-idempotencia-concorrencia.md). Referências: [locks transacionais PostgreSQL](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS) e [confirmações RabbitMQ](https://www.rabbitmq.com/docs/confirms).
 
@@ -171,8 +171,43 @@ Variáveis novas:
 - `CONSUMIDOR_INTERNO_ENABLED` (padrão `true`): permite desativar o listener, por exemplo em testes de infraestrutura.
 - `NOTIFICACOES_FILA_INTERNA` (padrão `notificacoes.interna`): permite apontar para fila equivalente já provisionada; alterar esse valor não cria automaticamente filas/bindings.
 
-Para aplicar, use `docker compose up -d --build --wait`. Isso habilita o consumidor interno na stack; a fila de e-mail continua sem consumidor até a MS-NOT-07. Nenhum ajuste no backend ou no modo de integração entre os dois Composes faz parte desta task.
+Para aplicar, use `docker compose up -d --build --wait`. Os dois consumidores são habilitados por padrão; consulte abaixo as configurações de e-mail. Nenhum ajuste no backend ou no modo de integração entre os dois Composes faz parte desta task.
 
 A suíte `mensageria-it` agora inicia o listener Spring real em filas exclusivas dos testes, com três consumidores, além dos testes anteriores. O perfil `postgres-it` e o teste H2 deixam o listener desligado. Para repetir a validação, use os comandos de mensageria acima trocando o projeto por `ms-not-06-test`.
 
 Detalhes: [implementação](docs/tasks/ms-not-06-consumo-interno.md) e [testes](docs/testes/ms-not-06-consumo-interno.md).
+
+## E-mails ao cliente — MS-NOT-07
+
+`ConsumidorEmailCliente` inicia automaticamente na fila `notificacoes.email`, valida o contrato/canal e executa `EnviadorEmailCliente` dentro do coordenador idempotente. O serviço usa `JavaMailSender`, exige a transação existente e envia um envelope individual por endereço distinto recebido no evento. Não consulta o backend ou o cadastro de clientes. O produtor deve informar o e-mail de contato correto; destinatários internos não são convertidos em e-mail.
+
+| Tipo | Assunto (seguido de número e título) | Conteúdo |
+|---|---|---|
+| `PRIMEIRO_POSICIONAMENTO` | `[FlowSLA] Primeiro posicionamento` | Posicionamento registrado pelo gestor, incluindo o texto obrigatório do evento |
+| `RESOLUCAO` | `[FlowSLA] Chamado resolvido` | Informa a resolução e orienta validar ou reabrir o chamado no sistema |
+| `AVISO_ENCERRAMENTO` | `[FlowSLA] Validação automática próxima` | Avisa a proximidade da validação/encerramento e orienta conferir a solução |
+
+Os três e-mails incluem número e título do chamado em texto e HTML, com UTF-8 e alternativas MIME para os dois formatos. Número, título e posicionamento são escapados em HTML; quebras de linha do posicionamento viram `<br>`. Quebras CR/LF são removidas do assunto. Cada destinatário recebe somente seu próprio endereço no cabeçalho `To`. O aviso não calcula datas nem agenda o envio: o app-principal deve gerar o evento um dia útil antes do encerramento, conforme RN-34. Não se usa “amanhã” no conteúdo, pois a entrega pode ser atrasada na fila.
+
+O marcador `EMAIL` é gravado somente após todos os envios terminarem, e o ACK vem após o commit. E-mail, corpo e texto do posicionamento não são persistidos; os logs do listener registram somente a categoria da falha, sem destinatário, payload ou mensagem de exceção SMTP. Republicações de eventos concluídos não reenviam. A janela SMTP entre aceitação e gravação do sucesso, descrita na MS-NOT-05, permanece: queda/falha no commit ou envio parcial pode produzir e-mail duplicado na próxima entrega.
+
+Mensagens inválidas ou de outro canal são rejeitadas sem requeue para a DLQ configurada. Erros SMTP/preparação/banco geram NACK com requeue; classificação de SMTP 4xx/5xx, limite/backoff e circuit breaker pertencem às MS-NOT-08/MS-NOT-09. Até lá, falhas persistentes podem causar reentregas contínuas. O canal interno possui listener separado e continua operacional durante a falha de SMTP.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `MAIL_FROM` | `notificacoes@flowsla.local` | Remetente local de desenvolvimento; configure um remetente autorizado ao usar provedor real |
+| `MAIL_HOST`, `MAIL_PORT` | `localhost`, `1025` na aplicação | Endpoint SMTP; no Compose o serviço usa `mailpit:1025` |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | vazios | Credenciais SMTP, fora do versionamento |
+| `MAIL_SMTP_AUTH` | `false` | Habilita autenticação SMTP |
+| `MAIL_STARTTLS_ENABLED` | `false` | Habilita e exige STARTTLS; a conexão falha se o servidor não suportar TLS |
+| `MAIL_CONNECTION_TIMEOUT_MS` | `5000` | Timeout de conexão em milissegundos |
+| `MAIL_READ_TIMEOUT_MS` | `5000` | Timeout de leitura em milissegundos |
+| `MAIL_WRITE_TIMEOUT_MS` | `5000` | Timeout de escrita em milissegundos |
+| `CONSUMIDOR_EMAIL_ENABLED` | `true` | Liga/desliga o listener de e-mail |
+| `NOTIFICACOES_FILA_EMAIL` | `notificacoes.email` | Fila equivalente previamente provisionada |
+
+Para desenvolvimento, execute `docker compose up -d --build --wait` e abra o [Mailpit local](http://localhost:18025) após publicar um dos exemplos válidos na exchange `notificacoes`, routing key `email`, com mensagem persistente. O SMTP local do Mailpit não exige autenticação/TLS. O Compose mantém o endpoint interno do Mailpit; para apontar a imagem a um provedor externo, sobrescreva `MAIL_HOST`/`MAIL_PORT` no ambiente do serviço.
+
+O perfil `mensageria-it` inclui a suíte `ConsumoEmailMailpitIT`, que usa listeners Spring reais, SMTP real e a API do Mailpit para verificar remetente/destinatários, conteúdo MIME, escape HTML, duplicações, falhas e isolamento. Use os comandos de mensageria acima com o projeto `ms-not-07-test` e, se houver outra stack ativa, defina também `MAIL_SMTP_LOCAL_PORT=21025` e `MAIL_UI_LOCAL_PORT=28025`. O perfil `postgres-it` continua sem depender de RabbitMQ/Mailpit. O smoke de infraestrutura desliga os dois consumidores somente em sua stack descartável.
+
+Detalhes: [implementação](docs/tasks/ms-not-07-emails-cliente.md) e [testes](docs/testes/ms-not-07-emails-cliente.md). Referências: [alternativas texto/HTML com MimeMessageHelper](https://docs.spring.io/spring-framework/docs/6.2.7/javadoc-api/org/springframework/mail/javamail/MimeMessageHelper.html) e [API do Mailpit](https://mailpit.axllent.org/docs/api-v1/).

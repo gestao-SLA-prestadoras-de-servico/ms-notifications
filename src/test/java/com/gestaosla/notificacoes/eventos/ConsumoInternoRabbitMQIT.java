@@ -31,6 +31,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
 @SpringBootTest(properties = {
+        "notificacoes.consumidor-email.enabled=false",
         "spring.datasource.url=${IT_DB_URL}", "spring.datasource.username=${IT_DB_USERNAME}",
         "spring.datasource.password=${IT_DB_PASSWORD}", "spring.rabbitmq.host=${IT_RABBITMQ_HOST}",
         "spring.rabbitmq.port=${IT_RABBITMQ_PORT:5672}", "spring.rabbitmq.username=${IT_RABBITMQ_USERNAME}",

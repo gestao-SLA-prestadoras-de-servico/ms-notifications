@@ -29,6 +29,14 @@ spring:
     port: ${MAIL_PORT:1025}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS_ENABLED:false}
+      mail.smtp.starttls.required: ${MAIL_STARTTLS_ENABLED:false}
+      mail.smtp.connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:5000}
+      mail.smtp.timeout: ${MAIL_READ_TIMEOUT_MS:5000}
+      mail.smtp.writetimeout: ${MAIL_WRITE_TIMEOUT_MS:5000}
 server:
   port: ${SERVER_PORT:8081}
 management:
@@ -38,8 +46,13 @@ management:
         include: health,info
 notificacoes:
   filas:
+    email: ${NOTIFICACOES_FILA_EMAIL:notificacoes.email}
     interna: ${NOTIFICACOES_FILA_INTERNA:notificacoes.interna}
   consumidor-interno:
     enabled: ${CONSUMIDOR_INTERNO_ENABLED:true}
+  consumidor-email:
+    enabled: ${CONSUMIDOR_EMAIL_ENABLED:true}
+  email:
+    remetente: ${MAIL_FROM:notificacoes@flowsla.local}
   processamento:
     lock-timeout: ${PROCESSAMENTO_LOCK_TIMEOUT:10s}
