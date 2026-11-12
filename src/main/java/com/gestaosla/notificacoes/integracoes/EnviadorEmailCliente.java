@@ -17,12 +17,14 @@ public class EnviadorEmailCliente {
     private final JavaMailSender sender;
     private final TemplateEmailCliente template;
     private final String remetente;
+    private final ProtecaoSmtp protecao;
 
     public EnviadorEmailCliente(JavaMailSender sender, TemplateEmailCliente template,
-            @Value("${notificacoes.email.remetente}") String remetente) {
+            @Value("${notificacoes.email.remetente}") String remetente, ProtecaoSmtp protecao) {
         this.sender = sender;
         this.template = template;
         this.remetente = remetente;
+        this.protecao = protecao;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -41,7 +43,7 @@ public class EnviadorEmailCliente {
                 throw new MailPreparationException("Não foi possível preparar o e-mail ao cliente");
             }
             // Um envelope por endereço, sem expor outros contatos do evento no cabeçalho To.
-            sender.send(mensagem);
+            protecao.executar(() -> sender.send(mensagem));
         }
     }
 }

@@ -32,7 +32,7 @@ public class RetencaoNotificacoes {
         this.transacao.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    @Scheduled(cron = "${notificacoes.retencao.cron:0 0 3 * * *}", zone = "${notificacoes.retencao.zone:UTC}")
+    @Scheduled(cron = "${notificacoes.retencao.cron:0 0 3 * * *}", zone = "${notificacoes.retencao.zone:UTC}", scheduler = "retencaoScheduler")
     public void executar() {
         Instant limite = clock.instant().minus(Duration.ofDays(90));
         long total = 0;

@@ -14,5 +14,5 @@ COPY --from=build --chown=notificacoes:notificacoes /build/target/ms-notificacoe
 USER notificacoes
 EXPOSE 8081
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=6 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8081/actuator/health || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:8081/actuator/health/liveness || exit 1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

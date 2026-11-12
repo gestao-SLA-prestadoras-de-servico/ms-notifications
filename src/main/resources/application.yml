@@ -60,11 +60,22 @@ logging:
 server:
   port: ${SERVER_PORT:8081}
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
 notificacoes:
+  smtp:
+    enabled: ${SMTP_CIRCUIT_BREAKER_ENABLED:true}
+    window-size: ${SMTP_CIRCUIT_WINDOW_SIZE:1}
+    minimum-calls: ${SMTP_CIRCUIT_MIN_CALLS:1}
+    failure-rate: ${SMTP_CIRCUIT_FAILURE_RATE:100}
+    open-wait: ${SMTP_CIRCUIT_OPEN_WAIT:30s}
+    probe-interval: ${SMTP_PROBE_INTERVAL:5s}
   retencao:
     cron: ${RETENCAO_CRON:0 0 3 * * *}
     zone: ${RETENCAO_ZONE:UTC}

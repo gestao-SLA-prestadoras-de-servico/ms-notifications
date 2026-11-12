@@ -16,7 +16,35 @@ class ProcessadorEntregaTest {
     private final ProcessadorMensagemNotificacao core = mock(ProcessadorMensagemNotificacao.class);
     private final PublicadorEncaminhamento publisher = mock(PublicadorEncaminhamento.class);
     private final Channel channel = mock(Channel.class);
-    private final ProcessadorEntrega processor = new ProcessadorEntrega(core, new ClassificadorFalha(), publisher, "retry", "dlx");
+    private final io.micrometer.core.instrument.simple.SimpleMeterRegistry metricas = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    private final ProcessadorEntrega processor = new ProcessadorEntrega(core, new ClassificadorFalha(), publisher, "retry", "dlx", metricas);
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3, 4})
+    void circuitoAbertoDevolveSemAlterarTentativaOuEncaminhar(int attempt) throws Exception {
+        when(core.processar(any(), any(), any(), any()))
+                .thenThrow(new com.gestaosla.notificacoes.integracoes.SmtpAguardandoRecuperacaoException());
+        var original = message(attempt);
+        processor.consumir(original, channel, CanalNotificacao.EMAIL, e -> { });
+        verify(channel).basicNack(42L, false, true);
+        verifyNoInteractions(publisher);
+        assertThat(original.getMessageProperties().getHeaders().get(ProcessadorEntrega.TENTATIVA)).isEqualTo(attempt);
+        assertThat(metricas.get("notificacoes.falhas").tags("canal", "email", "categoria", "indisponibilidade_smtp").counter().count()).isEqualTo(1);
+    }
+
+    @Test
+    void contabilizaEntregasEFalhasPorCanalSemEtiquetasPessoais() throws Exception {
+        when(core.processar(any(), any(), any(), any())).thenReturn(ResultadoProcessamento.PROCESSADO)
+                .thenReturn(ResultadoProcessamento.JA_PROCESSADO).thenThrow(new QueryTimeoutException("falha"));
+        processor.consumir(message(1), channel, CanalNotificacao.EMAIL, e -> { });
+        processor.consumir(message(1), channel, CanalNotificacao.EMAIL, e -> { });
+        processor.consumir(message(1), channel, CanalNotificacao.EMAIL, e -> { });
+        assertThat(metricas.get("notificacoes.entregas").tags("canal", "email", "resultado", "processado").counter().count()).isEqualTo(1);
+        assertThat(metricas.get("notificacoes.entregas").tags("canal", "email", "resultado", "duplicado").counter().count()).isEqualTo(1);
+        assertThat(metricas.get("notificacoes.falhas").tags("canal", "email", "categoria", "temporaria").counter().count()).isEqualTo(1);
+        assertThat(metricas.getMeters()).allSatisfy(m -> assertThat(m.getId().getTags()).allSatisfy(tag ->
+                assertThat(tag.getKey()).isIn("canal", "resultado", "categoria")));
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3})
@@ -60,6 +88,14 @@ class ProcessadorEntregaTest {
         processor.consumir(message(1), channel, CanalNotificacao.EMAIL, e -> { });
         verify(channel).basicNack(42L, false, true);
         verify(channel, never()).basicAck(anyLong(), anyBoolean());
+        assertThat(metricas.get("notificacoes.falhas").tags("canal", "email", "categoria", "encaminhamento").counter().count()).isEqualTo(1);
+    }
+
+    @Test void falhaNoAckDoEncaminhamentoEContadaComoTransporte() throws Exception {
+        when(core.processar(any(), any(), any(), any())).thenThrow(new EventoInvalidoException());
+        doThrow(new IOException("Falha ACK")).when(channel).basicAck(42L, false);
+        assertThatThrownBy(() -> processor.consumir(message(1), channel, CanalNotificacao.EMAIL, e -> { })).isInstanceOf(IOException.class);
+        assertThat(metricas.get("notificacoes.falhas").tags("canal", "email", "categoria", "transporte").counter().count()).isEqualTo(1);
     }
 
     @Test

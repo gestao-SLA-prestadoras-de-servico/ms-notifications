@@ -10,6 +10,7 @@ services:
     volumes:
       - postgres-it-maven:/root/.m2
     environment:
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
       IT_DB_URL: jdbc:postgresql://postgres:5432/ms_notificacoes
       IT_DB_USERNAME: ${DB_USERNAME:?Defina DB_USERNAME no .env}
       IT_DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no .env}

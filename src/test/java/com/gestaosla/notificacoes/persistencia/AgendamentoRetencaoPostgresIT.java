@@ -5,9 +5,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import com.gestaosla.notificacoes.eventos.TipoEvento;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -35,7 +38,21 @@ class AgendamentoRetencaoPostgresIT {
         @Bean @Primary Clock relogioFixo() { return Clock.fixed(AGORA, ZoneOffset.UTC); }
     }
     @Autowired NotificacaoInternaRepository notificacoes;
-    @Test void cronConfiguradoExecutaAutomaticamente() {
+    @Autowired @Qualifier("retencaoScheduler") org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler retencao;
+    @Autowired @Qualifier("smtpScheduler") org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler smtp;
+    @Test void cronConfiguradoExecutaAutomaticamenteSemBloquearRecuperacaoSmtp() throws Exception {
+        var bloqueou = new CountDownLatch(1);
+        var liberar = new CountDownLatch(1);
+        var respondeu = new CountDownLatch(1);
+        retencao.execute(() -> {
+            bloqueou.countDown();
+            try { liberar.await(10, TimeUnit.SECONDS); } catch (InterruptedException ex) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            assertThat(bloqueou.await(5, TimeUnit.SECONDS)).isTrue();
+            smtp.execute(respondeu::countDown);
+            assertThat(respondeu.await(5, TimeUnit.SECONDS)).isTrue();
+        } finally { liberar.countDown(); }
         notificacoes.saveAndFlush(new NotificacaoInterna("sub", "evento", TipoEvento.ATRIBUICAO,
                 "chamado", "#1", "Titulo", AGORA.minus(Duration.ofDays(91))));
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(notificacoes.count()).isZero());

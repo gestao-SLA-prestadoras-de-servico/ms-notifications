@@ -191,7 +191,7 @@ Os três e-mails incluem número e título do chamado em texto e HTML, com UTF-8
 
 O marcador `EMAIL` é gravado somente após todos os envios terminarem, e o ACK vem após o commit. E-mail, corpo e texto do posicionamento não são persistidos; os logs do listener registram somente a categoria da falha, sem destinatário, payload ou mensagem de exceção SMTP. Republicações de eventos concluídos não reenviam. A janela SMTP entre aceitação e gravação do sucesso, descrita na MS-NOT-05, permanece: queda/falha no commit ou envio parcial pode produzir e-mail duplicado na próxima entrega.
 
-Mensagens inválidas ou de outro canal e erros SMTP 5xx seguem diretamente para a DLQ por publicação confirmada. SMTP 4xx, timeout e falhas temporárias de banco recebem até três retries com backoff. O circuit breaker permanece para a MS-NOT-09. O canal interno possui listener separado e continua operacional durante a falha de SMTP.
+Mensagens inválidas ou de outro canal e erros SMTP 5xx seguem diretamente para a DLQ por publicação confirmada. Respostas SMTP temporárias e falhas temporárias de banco recebem até três retries com backoff. A indisponibilidade do transporte SMTP abre o circuit breaker e pausa o consumidor de e-mail; o canal interno continua operacional.
 
 | Variável | Padrão | Uso |
 |---|---|---|
@@ -251,7 +251,7 @@ O publicador usa conexão de publicação, `mandatory=true`, returns e publisher
 
 O limite de quatro é por **cadeia lógica de tentativas**, armazenado no broker e preservado em reentregas após retries/reinícios. Falhas de transporte podem reentregar a mesma tentativa; uma queda entre confirmação da cópia e ACK da origem pode duplicar a cópia. Essas entregas adicionais não representam nova etapa de backoff, e o marcador da MS-NOT-05 protege eventos concluídos. Não há garantia de exatamente uma vez para SMTP; a janela de duplicação documentada continua válida.
 
-Logs de DLQ informam somente canal, tentativa e categoria; não persistem payload em tabela nem marcam um evento com falha como sucesso. O circuit breaker/pausa automática é responsabilidade da MS-NOT-09.
+Logs de DLQ informam somente canal, tentativa e categoria; não persistem payload em tabela nem marcam um evento com falha como sucesso. O circuit breaker e a pausa automática complementam essa política.
 
 ### Aplicação em ambiente existente e testes
 
@@ -288,7 +288,7 @@ O realm `flowsla` do backend consultado já possui o mapper `audience-ms-notific
 
 CORS aceita somente as origens listadas, métodos `GET`/`PATCH` e headers `Authorization`/`Content-Type` nas rotas de notificações. Preflight válido dispensa token; origem, método ou header não permitido recebe 403. Não há credenciais por cookie nem curingas. O frontend deve enviar o Bearer em cada requisição.
 
-`GET /notificacoes` e `PATCH /notificacoes/{id}/lida` estão implementados na MS-NOT-11. Os testes isolados da MS-NOT-10 preservam seus controllers exclusivos para verificar a segurança sem depender do banco. `/actuator/health` permanece público; `/actuator/info` e rotas fora desse escopo permanecem negados.
+`GET /notificacoes` e `PATCH /notificacoes/{id}/lida` estão implementados na MS-NOT-11. Os testes isolados da MS-NOT-10 preservam seus controllers exclusivos para verificar a segurança sem depender do banco. `/actuator/health` e `/actuator/prometheus` estão acessíveis sem token; `/actuator/info` e rotas fora desse escopo permanecem negados.
 
 ### Teste com Keycloak isolado
 
@@ -385,3 +385,40 @@ E-mail do destinatário e texto do posicionamento são usados no envio, sem colu
 O tratador de erros AMQP mantém a classificação fatal e o comportamento de rejeição/descarte, mas registra apenas uma mensagem genérica, sem imprimir payload ou texto de exceção. O logger dos containers Rabbit fica em ERROR porque alguns WARN de encerramento incluem mensagens completas; isso também suprime outros avisos desse logger. Mantenha logs de protocolo SMTP/AMQP e SQL de parâmetros desativados em ambientes com dados reais. A aplicação registra no expurgo somente o total de linhas removidas.
 
 Detalhes: [implementação](docs/tasks/ms-not-12-retencao-minimizacao.md) e [testes](docs/testes/ms-not-12-retencao-minimizacao.md).
+
+## Recuperação SMTP — MS-NOT-09
+
+O circuit breaker Resilience4j envolve o envio SMTP. Com os padrões, a primeira falha de disponibilidade abre o circuito, pausa o listener de email e mantém as entregas na fila sem avançar tentativas. A sondagem independente verifica conexão/TLS/autenticação e retoma o listener ao fechar o circuito. O canal interno não é pausado.
+
+Configure `SMTP_CIRCUIT_BREAKER_ENABLED` (padrão `true`), `SMTP_CIRCUIT_WINDOW_SIZE` (`1`), `SMTP_CIRCUIT_MIN_CALLS` (`1`), `SMTP_CIRCUIT_FAILURE_RATE` (`100`), `SMTP_CIRCUIT_OPEN_WAIT` (`30s`) e `SMTP_PROBE_INTERVAL` (`5s`). A sondagem SMTP e o expurgo de retenção usam agendadores separados. A implementação da MS-NOT-09, anteriormente em outra branch, foi integrada à árvore desta task. Detalhes: [decisões](docs/tasks/ms-not-09-recuperacao-smtp.md) e [testes originais](docs/testes/ms-not-09-recuperacao-smtp.md).
+
+## Observabilidade — MS-NOT-13
+
+`/actuator/prometheus` expõe métricas Micrometer sem token, no mesmo servidor HTTP da aplicação. Restrinja esse endpoint por rede ou proxy ao coletor de métricas em ambientes implantados. No Compose a porta da aplicação é publicada somente no loopback do host; os demais serviços da rede Compose conseguem alcançá-la. `/actuator/health` agrega as dependências; `/actuator/health/liveness` indica a vida do processo sem depender delas e é usado pelo Docker HEALTHCHECK. O probe `/actuator/health/readiness` representa o estado de disponibilidade do Spring e, por padrão, não verifica dependências externas.
+
+| Métrica Prometheus | Significado |
+|---|---|
+| `notificacoes_eventos_processados_total{canal}` | Eventos efetivamente processados após commit; duplicatas não incrementam. É incrementada antes do ACK, inclusive se o ACK falhar |
+| `notificacoes_entregas_total{canal,resultado}` | Entregas cujo ACK retornou, com resultado `processado` ou `duplicado` |
+| `notificacoes_falhas_total{canal,categoria}` | Ocorrências por categoria: temporária, definitiva, transporte, encaminhamento ou indisponibilidade SMTP. Uma mesma entrega pode gerar mais de uma ocorrência |
+| `notificacoes_smtp_circuito_estado{estado}` | 1 para o estado atual e 0 para os demais; uma série por estado do Resilience4j |
+| `notificacoes_smtp_circuito_habilitado` | 1 quando habilitado, 0 quando desabilitado; desabilitado não é representado como CLOSED |
+| `notificacoes_smtp_circuito_transicoes_total{de,para}` | Contagem de transições observadas, inclusive HALF_OPEN de curta duração |
+
+Contadores são locais à instância, reiniciam com o processo e são agregados no Prometheus. As etiquetas personalizadas têm apenas canal, resultado, categoria e estados; não contêm destinatário, chamado ou eventoId. Para correlacionar eventos válidos, os logs registram o SHA-256 do `eventoId` em UTF-8, sem payload ou texto SMTP. O hash é um identificador pseudônimo, não anonimização de identificadores previsíveis. Payloads que não passam pela validação não têm ID confiável para correlacionar.
+
+### Prometheus e Grafana locais
+
+Defina `GRAFANA_ADMIN_PASSWORD` no ambiente e execute:
+
+```powershell
+docker compose -f compose.yaml -f infra/compose.observabilidade.yaml up -d --build --wait --wait-timeout 240
+```
+
+Grafana fica em `http://localhost:13000` e Prometheus em `http://localhost:19090`; as portas e `GRAFANA_ADMIN_USER` são configuráveis. A senha é obrigatória e não é versionada. O volume do Grafana preserva a conta: mudar a variável depois da primeira inicialização não redefine sua senha.
+
+O complemento habilita `rabbitmq_management` e `rabbitmq_prometheus` via arquivo de plugins e coleta `/metrics/per-object` em `rabbitmq:15692`, sem publicar essa porta no host. A troca do arquivo de plugins requer recriar/reiniciar o container RabbitMQ; o comando acima pode fazê-lo, mantendo seus volumes. Planeje essa interrupção ao aplicá-lo em uma stack existente. O complemento define a lista de plugins habilitados; instalações com outros plugins precisam conciliá-la. A coleta por objeto é adequada à topologia local e pode exigir filtros/ajustes em brokers com muitas filas.
+
+O Prometheus descobre instâncias da aplicação por DNS e coleta também as métricas por fila do RabbitMQ. O dashboard provisionado `FlowSLA / Notificações e filas` mostra profundidade, consumidores, taxa de entregas, DLQs, eventos/falhas e circuito. A primeira amostra de uma série aparece após sua criação e coleta; `rate` precisa de amostras suficientes. `/actuator/prometheus` e o endpoint do plugin Rabbit devem permanecer em rede confiável.
+
+Para validar em `ms-not-13-test`, mantenha os serviços da stack isolada em execução e rode `python infra/smoke_observabilidade.py`. O roteiro publica eventos fictícios e interrompe/reinicia **somente** o Mailpit dessa stack; verifica coleta, dashboard, isolamento do canal interno, liveness, circuito e recuperação. Não executa purge nem remove volumes. Detalhes: [implementação](docs/tasks/ms-not-13-observabilidade.md) e [testes](docs/testes/ms-not-13-observabilidade.md).

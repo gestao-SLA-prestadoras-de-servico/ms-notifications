@@ -137,7 +137,7 @@ class IdempotenciaPostgresIT {
         try {
             String payload = java.nio.file.Files.readString(java.nio.file.Path.of("docs/contratos/exemplos/validos/atribuicao.json"));
             var mensagem = new org.springframework.amqp.core.Message(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8), new org.springframework.amqp.core.MessageProperties());
-            var adapter = new ProcessadorMensagemNotificacao(leitor, processor());
+            var adapter = new ProcessadorMensagemNotificacao(leitor, processor(), new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
             assertThatThrownBy(() -> adapter.processar(mensagem, channel, CanalNotificacao.INTERNA, e -> {
                 invoked.incrementAndGet();
                 gravar(e.eventoId(), "sub-1");

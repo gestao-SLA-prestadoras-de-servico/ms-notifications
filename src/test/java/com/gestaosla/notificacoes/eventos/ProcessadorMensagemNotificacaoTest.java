@@ -21,7 +21,7 @@ class ProcessadorMensagemNotificacaoTest {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var core = mock(ProcessadorEventoIdempotente.class);
             var channel = mock(Channel.class);
-            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core);
+            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
             assertThatThrownBy(() -> processor.processar(message("{}"), channel, CanalNotificacao.INTERNA, e -> fail("Não executar")))
                     .isInstanceOf(EventoInvalidoException.class);
             assertThatThrownBy(() -> processor.processar(message(fixture()), channel, CanalNotificacao.EMAIL, e -> fail("Não executar")))
@@ -41,7 +41,7 @@ class ProcessadorMensagemNotificacaoTest {
                 ((Runnable) invocation.getArgument(2)).run();
                 return ResultadoProcessamento.PROCESSADO;
             });
-            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core);
+            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
             assertThat(processor.processar(message(fixture()), channel, CanalNotificacao.INTERNA, e -> action.incrementAndGet()))
                     .isEqualTo(ResultadoProcessamento.PROCESSADO);
             assertThat(action).hasValue(1);
@@ -56,10 +56,12 @@ class ProcessadorMensagemNotificacaoTest {
             var core = mock(ProcessadorEventoIdempotente.class);
             when(core.processar(anyString(), any(), any())).thenReturn(ResultadoProcessamento.JA_PROCESSADO);
             var channel = mock(Channel.class);
-            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core);
+            var metricas = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core, metricas);
             assertThat(processor.processar(message(fixture()), channel, CanalNotificacao.INTERNA, e -> fail("Não executar")))
                     .isEqualTo(ResultadoProcessamento.JA_PROCESSADO);
             verify(channel).basicAck(42L, false);
+            assertThat(metricas.find("notificacoes.eventos.processados").counter()).isNull();
         }
     }
 
@@ -69,7 +71,7 @@ class ProcessadorMensagemNotificacaoTest {
             var core = mock(ProcessadorEventoIdempotente.class);
             when(core.processar(anyString(), any(), any())).thenThrow(new IllegalStateException("Falha simulada"));
             var channel = mock(Channel.class);
-            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core);
+            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
             assertThatThrownBy(() -> processor.processar(message(fixture()), channel, CanalNotificacao.INTERNA, e -> { }))
                     .isInstanceOf(IllegalStateException.class);
             verifyNoInteractions(channel);
@@ -83,10 +85,12 @@ class ProcessadorMensagemNotificacaoTest {
             when(core.processar(anyString(), any(), any())).thenReturn(ResultadoProcessamento.PROCESSADO);
             var channel = mock(Channel.class);
             doThrow(new IOException("Conexão perdida")).when(channel).basicAck(42L, false);
-            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core);
+            var metricas = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+            var processor = new ProcessadorMensagemNotificacao(new LeitorEventoNotificacao(factory.getValidator()), core, metricas);
             assertThatThrownBy(() -> processor.processar(message(fixture()), channel, CanalNotificacao.INTERNA, e -> { }))
                     .isInstanceOf(IOException.class);
             verify(core, times(1)).processar(anyString(), any(), any());
+            assertThat(metricas.get("notificacoes.eventos.processados").tag("canal", "interna").counter().count()).isEqualTo(1);
         }
     }
 
