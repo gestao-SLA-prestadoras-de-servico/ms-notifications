@@ -5,6 +5,9 @@ services:
     build: .
     environment:
       SERVER_PORT: 8081
+      RETENCAO_CRON: ${RETENCAO_CRON:-0 0 3 * * *}
+      RETENCAO_ZONE: ${RETENCAO_ZONE:-UTC}
+      RETENCAO_TAMANHO_LOTE: ${RETENCAO_TAMANHO_LOTE:-500}
       KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8081/realms/flowsla}
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI:-http://host.docker.internal:8081/realms/flowsla/protocol/openid-connect/certs}
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-ms-notificacoes}

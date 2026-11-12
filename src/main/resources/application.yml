@@ -53,6 +53,10 @@ spring:
       mail.smtp.connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:5000}
       mail.smtp.timeout: ${MAIL_READ_TIMEOUT_MS:5000}
       mail.smtp.writetimeout: ${MAIL_WRITE_TIMEOUT_MS:5000}
+logging:
+  level:
+    # O container pode incluir o corpo de mensagens no WARN durante seu encerramento.
+    org.springframework.amqp.rabbit.listener: ERROR
 server:
   port: ${SERVER_PORT:8081}
 management:
@@ -61,6 +65,10 @@ management:
       exposure:
         include: health,info
 notificacoes:
+  retencao:
+    cron: ${RETENCAO_CRON:0 0 3 * * *}
+    zone: ${RETENCAO_ZONE:UTC}
+    tamanho-lote: ${RETENCAO_TAMANHO_LOTE:500}
   seguranca:
     audience: ${KEYCLOAK_AUDIENCE:ms-notificacoes}
     cors-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}

@@ -367,3 +367,21 @@ if ($pagina.itens.Count -gt 0) {
 O teste `NotificacoesApiPostgresIT` roda nos perfis `postgres-it` e `mensageria-it`, usando schema PostgreSQL exclusivo, controllers/filtros reais e decoder substituído apenas para isolar os casos de dados. Assinatura e emissão Keycloak continuam cobertas pelos testes da MS-NOT-10; a validação operacional desta task também exercita a imagem final com JWT real e eventos no RabbitMQ. Não há migration nova nem variável de ambiente nova.
 
 Detalhes: [implementação](docs/tasks/ms-not-11-api-notificacoes.md) e [evidências](docs/testes/ms-not-11-api-notificacoes.md).
+
+## Retenção e minimização — MS-NOT-12
+
+A rotina automática remove notificações internas cuja criação seja **anterior** ao instante atual menos 90 dias. O registro exatamente na fronteira é preservado. A rotina fixa o limite no começo da execução e apaga em lotes, cada qual em sua própria transação; marcadores de `evento_processado` permanecem para proteger a idempotência.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `RETENCAO_CRON` | `0 0 3 * * *` | Expressão cron Spring de seis campos; diariamente às 03:00 no fuso configurado. `-` desabilita o agendamento |
+| `RETENCAO_ZONE` | `UTC` | Fuso da programação, por exemplo `America/Sao_Paulo` |
+| `RETENCAO_TAMANHO_LOTE` | `500` | Quantidade por transação, de 1 a 10000 |
+
+O prazo de 90 dias é fixo, conforme RN-59. O índice de criação existente ajuda a localizar as linhas. `FOR UPDATE SKIP LOCKED` permite execuções simultâneas de réplicas sem apagar a mesma linha; registros bloqueados por outras transações podem ficar para a próxima execução. Um erro interrompe a execução atual; lotes já confirmados permanecem removidos e os demais serão considerados no próximo agendamento.
+
+E-mail do destinatário e texto do posicionamento são usados no envio, sem coluna correspondente no banco. As filas de trabalho/retry e DLQ carregam temporariamente o evento necessário ao processamento; as duas DLQs têm TTL de sete dias. Marcadores de sucesso são preservados independentemente das notificações e não contêm payload. Sua retenção indefinida deve ser considerada na operação.
+
+O tratador de erros AMQP mantém a classificação fatal e o comportamento de rejeição/descarte, mas registra apenas uma mensagem genérica, sem imprimir payload ou texto de exceção. O logger dos containers Rabbit fica em ERROR porque alguns WARN de encerramento incluem mensagens completas; isso também suprime outros avisos desse logger. Mantenha logs de protocolo SMTP/AMQP e SQL de parâmetros desativados em ambientes com dados reais. A aplicação registra no expurgo somente o total de linhas removidas.
+
+Detalhes: [implementação](docs/tasks/ms-not-12-retencao-minimizacao.md) e [testes](docs/testes/ms-not-12-retencao-minimizacao.md).
