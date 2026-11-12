@@ -10,7 +10,7 @@ Serviço independente de notificações do FlowSLA. Consome eventos de e-mail e 
 
 Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./mvnw test` para compilar e executar os testes. A porta padrão é 8081 e o endpoint de saúde é `/actuator/health`; sua resposta reflete a disponibilidade das dependências monitoradas.
 
-A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores estão ativos; a API de notificações pertence às tasks posteriores em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md). Somente a saúde está acessível por HTTP: os demais caminhos são negados até a implementação da autenticação e autorização na MS-NOT-10. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
+A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores estão ativos; os endpoints de consulta/leitura pertencem à MS-NOT-11 em [tasks_ms_not.md](docs/tasks/tasks_ms_not.md). A MS-NOT-10 protege `/notificacoes` e seus subcaminhos com JWT; somente a saúde é pública, e as demais rotas continuam negadas. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
 
 Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
 
@@ -266,3 +266,44 @@ O comando recria containers, preservando os volumes; **não use `down -v`**. A i
 Reprocessamento manual de uma mensagem da DLQ exige corrigir a causa e reiniciar a cadeia removendo `x-notificacoes-tentativa`/`x-notificacoes-categoria` antes de publicar o mesmo payload/ID no canal original; preservar o marcador de sucesso continua obrigatório. O teste de infraestrutura sem consumidores continua verificando a DLX nativa, enquanto os testes da aplicação verificam o encaminhamento confirmado.
 
 Detalhes: [implementação](docs/tasks/ms-not-08-retries-dlq.md) e [evidências](docs/testes/ms-not-08-retries-dlq.md). Referências: [confirms e returns no Spring AMQP](https://github.com/spring-projects/spring-amqp-samples/tree/main/spring-rabbit-confirms-returns) e [dead lettering seguro em quorum queues](https://www.rabbitmq.com/docs/4.1/quorum-queues).
+
+## JWT do Keycloak — MS-NOT-10
+
+A API é um OAuth2 Resource Server stateless. Envie o access token em `Authorization: Bearer <token>`. São validados assinatura RS256 pelas chaves públicas JWKS, emissor exato, audiência, expiração obrigatória, `nbf` quando presente e `sub` não vazio. A validação temporal padrão do Spring Security tolera 60 segundos de diferença entre relógios. Token ausente/inválido recebe **401** com challenge Bearer; token válido sem papel permitido recebe **403**. Cookies, sessão, HTTP Basic e parâmetro `access_token` não autenticam a API.
+
+Somente `TECNICO` e `GESTOR`, lidos de `realm_access.roles`, autorizam `/notificacoes` e `/notificacoes/**`. `CLIENTE`, client roles em `resource_access`, scopes e claims alternativos não concedem acesso. A identidade vem de `IdentidadeAutenticada.sub()`, que entrega o `sub` opaco do JWT validado, sem normalização, consulta ao backend/Keycloak ou destinatário recebido por parâmetro/header. A filtragem das notificações por esse sub será aplicada nos endpoints da MS-NOT-11.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `KEYCLOAK_ISSUER_URI` | `http://localhost:8081/realms/flowsla` | Deve coincidir exatamente com o `iss` do token emitido ao frontend |
+| `KEYCLOAK_JWK_SET_URI` | Direto: issuer local `/protocol/openid-connect/certs`; Compose: `http://host.docker.internal:8081/realms/flowsla/protocol/openid-connect/certs` | Endpoint de chaves acessível pela aplicação |
+| `KEYCLOAK_AUDIENCE` | `ms-notificacoes` | Deve constar em `aud` do access token |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:4200` | Lista de origens explícitas separadas por vírgula; vazio desabilita acesso entre origens |
+
+O `.env.example` usa o endereço JWKS do Docker Desktop. Para executar Java diretamente no host, configure `KEYCLOAK_JWK_SET_URI` com `localhost` ou a URL externa apropriada. Em Linux, configure um endereço roteável a partir do container ou uma rede compartilhada provisionada pela operação. Defina as URLs HTTPS do seu Keycloak no ambiente de produção.
+
+O issuer público e o endereço interno de chaves podem ser diferentes: não substitua o issuer público pelo hostname interno do container. Não há discovery nem contato com Keycloak ao iniciar; a leitura das chaves acontece ao validar tokens e usa o cache/renovação JWKS do Spring Security. Sem chaves disponíveis, tokens que precisem delas são recusados; consumidores e inicialização permanecem independentes do IdP.
+
+O realm `flowsla` do backend consultado já possui o mapper `audience-ms-notificacoes` nos clients `flowsla-frontend` e `flowsla-swagger`, além dos papéis do realm esperados. Isso permite validar o mesmo access token sem alterar o backend. Realms já existentes precisam ter esses mappers efetivamente aplicados: editar um arquivo de importação não atualiza automaticamente um realm persistido.
+
+CORS aceita somente as origens listadas, métodos `GET`/`PATCH` e headers `Authorization`/`Content-Type` nas rotas de notificações. Preflight válido dispensa token; origem, método ou header não permitido recebe 403. Não há credenciais por cookie nem curingas. O frontend deve enviar o Bearer em cada requisição.
+
+Apenas `GET/PATCH /notificacoes...` serão implementados pela MS-NOT-11. Nesta task, um usuário autorizado encontra 404 nessas rotas porque ainda não há controller de negócio. Os controllers usados para provar respostas 200/204 e identidade pertencem exclusivamente ao classpath de testes. `/actuator/health` permanece público; `/actuator/info` e rotas fora desse escopo permanecem negados.
+
+### Teste com Keycloak isolado
+
+O teste usa Keycloak 26.4, sem portas públicas e sem acessar o backend. O realm de teste tem três usuários fictícios e uma senha temporária gerada no processo. O grant de senha existe somente nesse client de automação; os clients de frontend do ambiente real continuam usando Authorization Code com PKCE.
+
+```powershell
+$env:IT_KEYCLOAK_PASSWORD = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
+try {
+    docker compose -p ms-not-10-test -f compose.yaml -f infra/compose.keycloak-it.yaml run --build --rm keycloak-it
+} finally {
+    docker compose -p ms-not-10-test -f compose.yaml -f infra/compose.keycloak-it.yaml down
+    Remove-Item Env:IT_KEYCLOAK_PASSWORD
+}
+```
+
+O perfil `keycloak-it` roda somente a integração JWT/Keycloak, além dos testes locais. `postgres-it` e `mensageria-it` continuam independentes do IdP. Após ajustar as variáveis de segurança, atualize a aplicação local com `docker compose up -d --build --no-deps ms-notificacoes`.
+
+Detalhes: [implementação](docs/tasks/ms-not-10-jwt-keycloak.md) e [testes](docs/testes/ms-not-10-jwt-keycloak.md). Referências: [validação JWT no Spring Security](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html) e [importação/variáveis no Keycloak](https://www.keycloak.org/server/importExport).

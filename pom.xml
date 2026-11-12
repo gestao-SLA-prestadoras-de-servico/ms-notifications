@@ -27,7 +27,7 @@
             <id>postgres-it</id>
             <build><plugins><plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
-                <configuration><excludes><exclude>**/ConfirmacaoRabbitMQIT.java</exclude><exclude>**/ConsumoInternoRabbitMQIT.java</exclude><exclude>**/ConsumoEmailMailpitIT.java</exclude><exclude>**/RetryRabbitMQIT.java</exclude></excludes></configuration>
+                <configuration><excludes><exclude>**/ConfirmacaoRabbitMQIT.java</exclude><exclude>**/ConsumoInternoRabbitMQIT.java</exclude><exclude>**/ConsumoEmailMailpitIT.java</exclude><exclude>**/RetryRabbitMQIT.java</exclude><exclude>**/KeycloakJwtIT.java</exclude></excludes></configuration>
                 <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
             </plugin></plugins></build>
         </profile>
@@ -35,6 +35,15 @@
             <id>mensageria-it</id>
             <build><plugins><plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
+                <configuration><excludes><exclude>**/KeycloakJwtIT.java</exclude></excludes></configuration>
+                <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+            </plugin></plugins></build>
+        </profile>
+        <profile>
+            <id>keycloak-it</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
+                <configuration><includes><include>**/KeycloakJwtIT.java</include></includes></configuration>
                 <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
             </plugin></plugins></build>
         </profile>
