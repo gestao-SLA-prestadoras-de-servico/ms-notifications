@@ -177,7 +177,11 @@ class RetryRabbitMQIT {
         // Dá tempo para uma publicação mandatory ser devolvida, sem confirmar a origem.
         await().pollDelay(Duration.ofMillis(250)).atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(admin.getQueueInfo(DLQ).getMessageCount()).isZero());
         container().stop();
-        assertThat(admin.getQueueInfo(FILA).getMessageCount()).isEqualTo(1);
+        // Cancelamento/NACK e contagem da fila são observados de forma assíncrona pelo broker.
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+            assertThat(admin.getQueueInfo(FILA).getMessageCount()).isEqualTo(1);
+            assertThat(admin.getQueueInfo(DLQ).getMessageCount()).isZero();
+        });
         assertThat(acao.instantes).isEmpty();
         admin.declareBinding(BINDING_DLQ);
         container().start();

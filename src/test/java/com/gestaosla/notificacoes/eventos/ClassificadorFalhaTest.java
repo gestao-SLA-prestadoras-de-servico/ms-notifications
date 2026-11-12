@@ -67,5 +67,8 @@ class ClassificadorFalhaTest {
     void conexaoSmtpInterrompidaETemporaria() {
         assertThat(classifier.classificar(new MailSendException("Falha", new java.net.SocketException("Connection reset"))))
                 .isEqualTo(ClassificadorFalha.Natureza.TEMPORARIA);
+        var eof = new MailSendException("Falha", new java.io.EOFException());
+        assertThat(classifier.classificar(eof)).isEqualTo(ClassificadorFalha.Natureza.TEMPORARIA);
+        assertThat(classifier.indisponibilidadeSmtp(eof)).isTrue();
     }
 }

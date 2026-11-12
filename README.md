@@ -218,7 +218,8 @@ Os dois listeners delegam a `ProcessadorEntrega`. Cada entrega executa a ação 
 
 | Falha | Tratamento |
 |---|---|
-| Timeout, conexão SMTP interrompida/recusada/DNS, SMTP 4xx | Inicial + até 3 retries |
+| SMTP 450/451/452 e demais 4xx sem indisponibilidade do serviço | Inicial + até 3 retries |
+| Conexão SMTP interrompida/recusada/DNS, timeout, EOF ou SMTP 421 | Circuit breaker; com circuito aberto, pausa e requeue sem avançar tentativa |
 | Falha temporária Spring Data/SQL (conexão, serialização/deadlock, recursos, lock timeout, indisponibilidade) | Inicial + até 3 retries |
 | SMTP 5xx, contrato/canal/header inválido, preparação inválida, integridade SQL ou falha desconhecida | DLQ direta |
 | Quarta tentativa temporária sem sucesso | DLQ do canal, com registro de falha nos logs |
@@ -251,7 +252,7 @@ O publicador usa conexão de publicação, `mandatory=true`, returns e publisher
 
 O limite de quatro é por **cadeia lógica de tentativas**, armazenado no broker e preservado em reentregas após retries/reinícios. Falhas de transporte podem reentregar a mesma tentativa; uma queda entre confirmação da cópia e ACK da origem pode duplicar a cópia. Essas entregas adicionais não representam nova etapa de backoff, e o marcador da MS-NOT-05 protege eventos concluídos. Não há garantia de exatamente uma vez para SMTP; a janela de duplicação documentada continua válida.
 
-Logs de DLQ informam somente canal, tentativa e categoria; não persistem payload em tabela nem marcam um evento com falha como sucesso. O circuit breaker/pausa automática é responsabilidade da MS-NOT-09.
+Logs de DLQ informam somente canal, tentativa e categoria; não persistem payload em tabela nem marcam um evento com falha como sucesso. A proteção SMTP abaixo complementa esta política.
 
 ### Aplicação em ambiente existente e testes
 
@@ -266,3 +267,36 @@ O comando recria containers, preservando os volumes; **não use `down -v`**. A i
 Reprocessamento manual de uma mensagem da DLQ exige corrigir a causa e reiniciar a cadeia removendo `x-notificacoes-tentativa`/`x-notificacoes-categoria` antes de publicar o mesmo payload/ID no canal original; preservar o marcador de sucesso continua obrigatório. O teste de infraestrutura sem consumidores continua verificando a DLX nativa, enquanto os testes da aplicação verificam o encaminhamento confirmado.
 
 Detalhes: [implementação](docs/tasks/ms-not-08-retries-dlq.md) e [evidências](docs/testes/ms-not-08-retries-dlq.md). Referências: [confirms e returns no Spring AMQP](https://github.com/spring-projects/spring-amqp-samples/tree/main/spring-rabbit-confirms-returns) e [dead lettering seguro em quorum queues](https://www.rabbitmq.com/docs/4.1/quorum-queues).
+
+## Circuit breaker e recuperação SMTP — MS-NOT-09
+
+`ProtecaoSmtp` utiliza o núcleo do Resilience4j 2.4.0 diretamente, com configuração Spring Boot 4. A proteção envolve cada chamada de envio SMTP. Conexão recusada/interrompida, timeout, DNS, EOF e resposta 421 contam como indisponibilidade. Rejeições 450/451/452 continuam nos retries limitados; 5xx seguem diretamente à DLQ. Falhas de banco, contrato e preparação não entram no circuito.
+
+Por padrão, a primeira falha de disponibilidade abre o circuito. A entrega que o abriu e as entregas já recebidas pelo listener voltam à fila por NACK/requeue, sem alterar corpo, headers ou tentativa, inclusive na tentativa 4. `RecuperacaoSmtp` pausa somente `notificacoesEmail`, em uma thread independente. `forceStop` devolve mensagens prefetched ao broker. O consumidor interno continua ativo.
+
+Enquanto estiver aberto, um scheduler dedicado tenta obter uma permissão após a espera configurada. Somente a sonda usa HALF_OPEN; mensagens da fila continuam bloqueadas. A sonda usa `JavaMailSenderImpl.testConnection()`, com os mesmos host, porta, credenciais, STARTTLS e timeouts do envio, sem enviar mensagens. Falha na sonda reabre o circuito e reinicia a espera; sucesso fecha o circuito e retoma automaticamente o consumidor que foi pausado pela proteção. `CONSUMIDOR_EMAIL_ENABLED=false` impede sondagem e retomada automática.
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `SMTP_CIRCUIT_BREAKER_ENABLED` | `true` | Ativa a proteção e o controle do consumidor |
+| `SMTP_CIRCUIT_WINDOW_SIZE` | `1` | Quantidade de chamadas na janela deslizante |
+| `SMTP_CIRCUIT_MIN_CALLS` | `1` | Mínimo de chamadas antes de calcular a taxa; deve caber na janela |
+| `SMTP_CIRCUIT_FAILURE_RATE` | `100` | Percentual de falhas que abre o circuito, maior que zero e até 100 |
+| `SMTP_CIRCUIT_OPEN_WAIT` | `30s` | Espera positiva antes de permitir uma sonda |
+| `SMTP_PROBE_INTERVAL` | `5s` | Intervalo positivo entre verificações, além do tempo da sonda |
+
+Os timeouts `MAIL_*_TIMEOUT_MS` também limitam as operações da sonda. A retomada ocorre após a espera e a próxima verificação bem-sucedida. Com mínimo/janela maiores, falhas anteriores à abertura continuam usando a política limitada de retries. Desabilitar a proteção restaura essa política para todas as falhas temporárias.
+
+O circuito é local a cada instância e reinicia fechado após restart; mensagens e contadores permanecem no RabbitMQ. Uma sonda valida conexão/TLS/autenticação, sem garantir aceitação futura de cada destinatário. A janela de duplicação entre aceitação SMTP e commit, inclusive em lotes parcialmente enviados, permanece.
+
+Para aplicar esta task à aplicação local, mantendo a infraestrutura já provisionada na MS-NOT-08:
+
+```powershell
+docker compose up -d --build --no-deps ms-notificacoes
+```
+
+Execute a suíte `mensageria-it` com o projeto isolado `ms-not-09-test`, conforme o [relatório de testes](docs/testes/ms-not-09-recuperacao-smtp.md). A suíte anterior de envio roda com o circuito desabilitado para preservar a cobertura de retries; `RecuperacaoSmtpIT` valida a proteção habilitada com concorrência, prefetch, recusa TCP real, PostgreSQL, RabbitMQ e Mailpit.
+
+Com a aplicação atualizada na stack isolada `ms-not-09-test`, filas de e-mail/DLQ vazias e parâmetros padrão, `python infra/smoke_smtp.py` para e reinicia somente o Mailpit desse projeto. O roteiro verifica abertura, preservação das tentativas 3/4, processamento interno e recuperação automática pela sonda. O nome do projeto está fixado no script.
+
+Detalhes: [implementação](docs/tasks/ms-not-09-recuperacao-smtp.md). Referências: [máquina de estados Resilience4j](https://resilience4j.readme.io/docs/circuitbreaker) e [parada com devolução do prefetch no Spring AMQP](https://docs.spring.io/spring-amqp/api/org/springframework/amqp/rabbit/listener/AbstractMessageListenerContainer.html#setForceStop(boolean)).

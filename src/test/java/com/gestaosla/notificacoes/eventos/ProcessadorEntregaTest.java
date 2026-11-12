@@ -13,6 +13,19 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class ProcessadorEntregaTest {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3, 4})
+    void circuitoAbertoPreservaEntregaSemPublicarRetryOuDlq(int tentativa) throws Exception {
+        when(core.processar(any(), any(), any(), any()))
+                .thenThrow(new com.gestaosla.notificacoes.integracoes.SmtpAguardandoRecuperacaoException());
+        var original = message(tentativa);
+        processor.consumir(original, channel, CanalNotificacao.EMAIL, e -> { });
+        verify(channel).basicNack(42L, false, true);
+        verify(channel, never()).basicAck(anyLong(), anyBoolean());
+        verifyNoInteractions(publisher);
+        assertThat(original.getMessageProperties().getHeaders().get(ProcessadorEntrega.TENTATIVA)).isEqualTo(tentativa);
+    }
+
     private final ProcessadorMensagemNotificacao core = mock(ProcessadorMensagemNotificacao.class);
     private final PublicadorEncaminhamento publisher = mock(PublicadorEncaminhamento.class);
     private final Channel channel = mock(Channel.class);

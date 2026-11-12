@@ -2,6 +2,7 @@ package com.gestaosla.notificacoes.eventos;
 
 import java.io.IOException;
 import java.util.function.Consumer;
+import com.gestaosla.notificacoes.integracoes.SmtpAguardandoRecuperacaoException;
 
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
@@ -44,6 +45,10 @@ public class ProcessadorEntrega {
             processador.processar(mensagem, channel, canal, acao);
             return;
         } catch (RuntimeException ex) {
+            if (canal == CanalNotificacao.EMAIL && ex instanceof SmtpAguardandoRecuperacaoException) {
+                channel.basicNack(mensagem.getMessageProperties().getDeliveryTag(), false, true);
+                return;
+            }
             falha = ex;
         }
         var natureza = classificador.classificar(falha);

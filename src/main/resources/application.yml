@@ -55,6 +55,13 @@ management:
       exposure:
         include: health,info
 notificacoes:
+  smtp:
+    enabled: ${SMTP_CIRCUIT_BREAKER_ENABLED:true}
+    window-size: ${SMTP_CIRCUIT_WINDOW_SIZE:1}
+    minimum-calls: ${SMTP_CIRCUIT_MIN_CALLS:1}
+    failure-rate: ${SMTP_CIRCUIT_FAILURE_RATE:100}
+    open-wait: ${SMTP_CIRCUIT_OPEN_WAIT:30s}
+    probe-interval: ${SMTP_PROBE_INTERVAL:5s}
   retry:
     exchange: ${NOTIFICACOES_RETRY_EXCHANGE:notificacoes.retry}
     dlx: ${NOTIFICACOES_DLX:notificacoes.dlx}

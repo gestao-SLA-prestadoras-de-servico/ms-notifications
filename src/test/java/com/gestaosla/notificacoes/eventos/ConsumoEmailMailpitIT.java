@@ -49,7 +49,7 @@ import static org.mockito.Mockito.*;
         "spring.mail.host=${IT_MAIL_HOST}", "spring.mail.port=${IT_MAIL_PORT:1025}",
         "notificacoes.email.remetente=notificacoes@example.com", "notificacoes.consumidor-email.enabled=true",
         "notificacoes.consumidor-interno.enabled=true", "spring.rabbitmq.listener.simple.concurrency=3",
-        "spring.rabbitmq.listener.simple.prefetch=1"
+        "spring.rabbitmq.listener.simple.prefetch=1", "notificacoes.smtp.enabled=false"
 })
 @Import(ConsumoEmailMailpitIT.TopologiaTeste.class)
 @Timeout(40)
