@@ -439,3 +439,15 @@ Os containers são encerrados ao terminar; Ryuk acompanha sua limpeza. Não exec
 `test` continua executando somente os testes locais, sem criar containers. Os perfis `postgres-it`, `mensageria-it` e `keycloak-it` preservam os runners externos existentes. Escolha apenas um perfil por execução. A automação de CI pertence à MS-NOT-17.
 
 Matriz de cobertura: [implementação](docs/tasks/ms-not-14-testes-automatizados.md). Evidências: [testes](docs/testes/ms-not-14-testes-automatizados.md).
+
+## Recuperação e isolamento — MS-NOT-15
+
+Para validar interrupções reais de processos, com Java 21 e Docker, execute:
+
+```powershell
+.\mvnw.cmd -B -Presiliencia-it verify
+```
+
+Linux/macOS: `./mvnw -B -Presiliencia-it verify`. A suíte inicia o JAR empacotado, PostgreSQL, RabbitMQ e Mailpit em containers descartáveis próprios. Pausa SMTP, interrompe banco/serviço, reinicia o broker e comprova a reentrega após uma JVM cair entre commit e ACK. As evidências de filas, métricas e resultados ficam em `target/ms-not-15/<execucao>/`. O encerramento remove os recursos temporários, incluindo seus dados sintéticos.
+
+Use esse perfil separadamente de `completo-it` e dos runners Compose. Não requer `.env` nem modifica a stack local. O cenário com outbox do produtor depende da implementação desse módulo no backend, que ainda contém apenas a estrutura de pacotes na versão consultada. Detalhes: [implementação](docs/tasks/ms-not-15-recuperacao-isolamento.md) e [testes](docs/testes/ms-not-15-recuperacao-isolamento.md).

@@ -27,12 +27,20 @@
     <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
     <profiles>
         <profile>
+            <id>resiliencia-it</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
+                <configuration><includes><include>**/ResilienciaProcessosIT.java</include></includes><failIfNoTests>true</failIfNoTests></configuration>
+                <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+            </plugin></plugins></build>
+        </profile>
+        <profile>
             <id>completo-it</id>
             <build><plugins><plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <failIfNoTests>true</failIfNoTests>
-                    <excludes></excludes>
+                    <excludes><exclude>**/ResilienciaProcessosIT.java</exclude></excludes>
                     <systemPropertyVariables>
                         <notificacoes.testcontainers>true</notificacoes.testcontainers>
                         <spring.datasource.hikari.minimum-idle>1</spring.datasource.hikari.minimum-idle>
@@ -46,7 +54,7 @@
             <id>postgres-it</id>
             <build><plugins><plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
-                <configuration><excludes><exclude>**/ConfirmacaoRabbitMQIT.java</exclude><exclude>**/ConsumoInternoRabbitMQIT.java</exclude><exclude>**/ConsumoEmailMailpitIT.java</exclude><exclude>**/RetryRabbitMQIT.java</exclude><exclude>**/KeycloakJwtIT.java</exclude><exclude>**/RecuperacaoSmtpIT.java</exclude><exclude>**/FluxoSeguroIT.java</exclude></excludes></configuration>
+                <configuration><excludes><exclude>**/ResilienciaProcessosIT.java</exclude><exclude>**/ConfirmacaoRabbitMQIT.java</exclude><exclude>**/ConsumoInternoRabbitMQIT.java</exclude><exclude>**/ConsumoEmailMailpitIT.java</exclude><exclude>**/RetryRabbitMQIT.java</exclude><exclude>**/KeycloakJwtIT.java</exclude><exclude>**/RecuperacaoSmtpIT.java</exclude><exclude>**/FluxoSeguroIT.java</exclude></excludes></configuration>
                 <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
             </plugin></plugins></build>
         </profile>
@@ -54,7 +62,7 @@
             <id>mensageria-it</id>
             <build><plugins><plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId>
-                <configuration><excludes><exclude>**/KeycloakJwtIT.java</exclude><exclude>**/FluxoSeguroIT.java</exclude></excludes></configuration>
+                <configuration><excludes><exclude>**/ResilienciaProcessosIT.java</exclude><exclude>**/KeycloakJwtIT.java</exclude><exclude>**/FluxoSeguroIT.java</exclude></excludes></configuration>
                 <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
             </plugin></plugins></build>
         </profile>
