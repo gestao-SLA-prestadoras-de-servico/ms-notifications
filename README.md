@@ -2,6 +2,10 @@
 
 Serviço independente de notificações do FlowSLA. Consome eventos de e-mail e de notificações internas no RabbitMQ, usando seu próprio banco PostgreSQL. A API de leitura será consumida pelo frontend. Os serviços não compartilham banco nem consultam a API um do outro para compor notificações. A conexão com o publicador do app-principal depende do alinhamento de contrato e infraestrutura entre os projetos.
 
+Para execução, integração, diagnóstico e reprocessamento, consulte o [manual de operação](docs/operacao.md). O contrato da API está em [OpenAPI](docs/openapi.json); os resultados de [resiliência](docs/testes/ms-not-15-recuperacao-isolamento.md) e [escala](docs/testes/ms-not-16-escalabilidade.md) descrevem as condições testadas.
+
+O [workflow de integração contínua](.github/workflows/ci.yml) executa os testes locais e de integração e constrói a imagem Docker em pushes e pull requests. Os relatórios ficam disponíveis como artefato da execução.
+
 ## Requisitos e execução
 
 - Java 21; o Maven Wrapper baixa o Maven quando necessário.
@@ -10,7 +14,7 @@ Serviço independente de notificações do FlowSLA. Consome eventos de e-mail e 
 
 Execute `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`). Use `./mvnw test` para compilar e executar os testes. A porta padrão é 8081 e o endpoint de saúde é `/actuator/health`; sua resposta reflete a disponibilidade das dependências monitoradas.
 
-A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores e a API de consulta/leitura estão implementados. `/notificacoes` e seus subcaminhos exigem JWT e papel TECNICO/GESTOR; somente a saúde é pública, e as demais rotas continuam negadas. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
+A base contém os pacotes `api`, `eventos`, `persistencia`, `integracoes` e `config`. Os dois consumidores e a API de consulta/leitura estão implementados. `/notificacoes` e seus subcaminhos exigem JWT e papel TECNICO/GESTOR; saúde e métricas Prometheus são públicas, e as demais rotas continuam negadas. As filas são criadas pelo ambiente Docker e o schema pelo Flyway.
 
 Os [contratos dos eventos](docs/contratos/eventos.md) descrevem os nove tipos, canais, destinatários e exemplos JSON válidos e inválidos. A MS-NOT-02 adiciona DTOs e o `LeitorEventoNotificacao` para desserialização e validação antes do processamento; o formato ainda precisa ser adotado pelo publicador do app-principal.
 
@@ -61,7 +65,7 @@ O serviço aguarda PostgreSQL, RabbitMQ e Mailpit saudáveis. O `rabbitmq-init` 
 
 `notificacoes.dlx` usa as mesmas routing keys para as duas DLQs duráveis. Cada DLQ tem `x-message-ttl=604800000` (sete dias); filas de trabalho não têm TTL. A expiração elimina a mensagem da DLQ. São filas classic em um broker único, com armazenamento em volume e nome de nó estável; não fornecem replicação/alta disponibilidade.
 
-**O produtor precisa publicar com `delivery_mode=2` (persistente), publisher confirms e tratamento de mensagens não roteadas.** Fila durável sozinha não torna a mensagem persistente. Este repositório não implementa o publicador do app-principal. A separação das filas prepara o isolamento dos canais; consumidores, retries e encaminhamento definitivo para DLQ serão implementados nas MS-NOT-06 a MS-NOT-09.
+**O produtor precisa publicar com `delivery_mode=2` (persistente), publisher confirms e tratamento de mensagens não roteadas.** Fila durável sozinha não torna a mensagem persistente. Este repositório não implementa o publicador do app-principal. Consumidores, retries e encaminhamento definitivo para DLQ estão implementados nas MS-NOT-06 a MS-NOT-09.
 
 Volumes `postgres-data` e `rabbitmq-data` preservam os dados quando containers são reiniciados ou recriados. `rabbitmq-definitions` contém as definições geradas. `docker compose down` preserva os volumes; **`down -v` apaga os dados**. O Mailpit é uma caixa de teste efêmera, sem volume. Alterar a senha do PostgreSQL no `.env` não altera o usuário de um banco já inicializado. Alterar argumentos imutáveis de filas exige migração planejada; importar definições não modifica automaticamente filas existentes.
 
