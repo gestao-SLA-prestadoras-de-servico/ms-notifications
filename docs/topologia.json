@@ -1,0 +1,42 @@
+{
+  "exchanges": [
+    { "name": "notificacoes", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} },
+    { "name": "notificacoes.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} },
+    { "name": "evidencias", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} },
+    { "name": "evidencias.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} }
+  ],
+  "queues": [
+    {
+      "name": "notificacoes.email", "vhost": "/", "durable": true, "auto_delete": false,
+      "arguments": { "x-queue-type": "classic", "x-dead-letter-exchange": "notificacoes.dlx", "x-dead-letter-routing-key": "email" }
+    },
+    {
+      "name": "notificacoes.interna", "vhost": "/", "durable": true, "auto_delete": false,
+      "arguments": { "x-queue-type": "classic", "x-dead-letter-exchange": "notificacoes.dlx", "x-dead-letter-routing-key": "interna" }
+    },
+    {
+      "name": "notificacoes.email.dlq", "vhost": "/", "durable": true, "auto_delete": false,
+      "arguments": { "x-queue-type": "classic", "x-message-ttl": 604800000 }
+    },
+    {
+      "name": "notificacoes.interna.dlq", "vhost": "/", "durable": true, "auto_delete": false,
+      "arguments": { "x-queue-type": "classic", "x-message-ttl": 604800000 }
+    },
+    {
+      "name": "evidencias.processamento", "vhost": "/", "durable": true, "auto_delete": false,
+      "arguments": { "x-queue-type": "classic", "x-dead-letter-exchange": "evidencias.dlx", "x-dead-letter-routing-key": "processamento" }
+    },
+    {
+      "name": "evidencias.processamento.dlq", "vhost": "/", "durable": true, "auto_delete": false,
+      "arguments": { "x-queue-type": "classic" }
+    }
+  ],
+  "bindings": [
+    { "source": "notificacoes", "vhost": "/", "destination": "notificacoes.email", "destination_type": "queue", "routing_key": "email", "arguments": {} },
+    { "source": "notificacoes", "vhost": "/", "destination": "notificacoes.interna", "destination_type": "queue", "routing_key": "interna", "arguments": {} },
+    { "source": "notificacoes.dlx", "vhost": "/", "destination": "notificacoes.email.dlq", "destination_type": "queue", "routing_key": "email", "arguments": {} },
+    { "source": "notificacoes.dlx", "vhost": "/", "destination": "notificacoes.interna.dlq", "destination_type": "queue", "routing_key": "interna", "arguments": {} },
+    { "source": "evidencias", "vhost": "/", "destination": "evidencias.processamento", "destination_type": "queue", "routing_key": "processamento", "arguments": {} },
+    { "source": "evidencias.dlx", "vhost": "/", "destination": "evidencias.processamento.dlq", "destination_type": "queue", "routing_key": "processamento", "arguments": {} }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "eventoId": "evento-1",
+  "tipo": "ATRIBUICAO",
+  "chamado": {
+    "id": "1042",
+    "numero": "#1042"
+  },
+  "destinatarios": [
+    "sub-tecnico-atribuido"
+  ]
+}
