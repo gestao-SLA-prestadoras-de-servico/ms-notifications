@@ -1,0 +1,12 @@
+{
+  "eventoId": "evento-8",
+  "tipo": "RESOLUCAO",
+  "chamado": {
+    "id": "1042",
+    "numero": "#1042"
+  },
+  "titulo": "Equipamento sem funcionamento",
+  "destinatarios": [
+    "cliente@example.com"
+  ]
+}

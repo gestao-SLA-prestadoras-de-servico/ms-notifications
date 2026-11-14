@@ -1,0 +1,17 @@
+{
+  "name" : "smtp",
+  "listen" : "[::]:1025",
+  "upstream" : "mailpit:1025",
+  "enabled" : true,
+  "Logger" : { },
+  "toxics" : [ {
+    "attributes" : {
+      "latency" : 100,
+      "jitter" : 0
+    },
+    "name" : "latencia-smtp",
+    "type" : "latency",
+    "stream" : "downstream",
+    "toxicity" : 1
+  } ]
+}

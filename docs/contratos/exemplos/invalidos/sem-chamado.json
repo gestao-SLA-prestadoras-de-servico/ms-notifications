@@ -1,0 +1,8 @@
+{
+  "eventoId": "evento-1",
+  "tipo": "ATRIBUICAO",
+  "titulo": "Equipamento sem funcionamento",
+  "destinatarios": [
+    "sub-tecnico-atribuido"
+  ]
+}

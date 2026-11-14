@@ -1,0 +1,5 @@
+repeticao,instancias,drenagemMs,vazaoEmailsPorSegundo,falhas,emailsCapturados,duplicacoesSmtp,marcadoresEmail,reentregasDescartadas,latenciaInternaObservadaMs
+1,1,24494,1.306442394055687,0.0,32,0,32,8.0,140
+1,4,7648,4.184100418410042,0.0,32,0,32,8.0,216
+2,4,7265,4.40467997247075,0.0,32,0,32,8.0,198
+2,1,24204,1.3220955214014212,0.0,32,0,32,8.0,97

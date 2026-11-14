@@ -1,0 +1,12 @@
+{
+  "eventoId": "evento-9",
+  "tipo": "AVISO_ENCERRAMENTO",
+  "chamado": {
+    "id": "1042",
+    "numero": "#1042"
+  },
+  "titulo": "Equipamento sem funcionamento",
+  "destinatarios": [
+    "cliente@example.com"
+  ]
+}

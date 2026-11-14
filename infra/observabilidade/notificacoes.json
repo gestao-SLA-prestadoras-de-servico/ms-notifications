@@ -1,0 +1,12 @@
+{
+  "uid": "ms-notificacoes", "title": "Notificações e filas", "schemaVersion": 39,
+  "refresh": "15s", "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {"id": 1, "title": "Mensagens prontas por fila", "type": "timeseries", "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "rabbitmq_queue_messages_ready{queue=~\"notificacoes\\..*\"}", "legendFormat": "{{vhost}} / {{queue}}"}]},
+    {"id": 2, "title": "Mensagens em DLQ", "type": "timeseries", "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "rabbitmq_queue_messages{queue=~\"notificacoes\\.(email|interna)\\.dlq\"}", "legendFormat": "{{vhost}} / {{queue}}"}]},
+    {"id": 3, "title": "Consumidores por fila", "type": "timeseries", "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "rabbitmq_queue_consumers{queue=~\"notificacoes\\.(email|interna)\"}", "legendFormat": "{{vhost}} / {{queue}}"}]},
+    {"id": 4, "title": "Eventos, entregas e falhas por canal", "type": "timeseries", "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "sum by (canal) (rate(notificacoes_eventos_processados_total[5m]))", "legendFormat": "{{canal}} / processado"}, {"expr": "sum by (canal, resultado) (rate(notificacoes_entregas_total[5m]))", "legendFormat": "{{canal}} / {{resultado}}"}, {"expr": "sum by (canal, categoria) (rate(notificacoes_falhas_total[5m]))", "legendFormat": "{{canal}} / {{categoria}}"}]},
+    {"id": 5, "title": "Taxa de entregas com ACK por fila", "type": "timeseries", "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "rate(rabbitmq_queue_messages_delivered_ack_total{queue=~\"notificacoes\\.(email|interna)\"}[5m])", "legendFormat": "{{vhost}} / {{queue}}"}]},
+    {"id": 6, "title": "Estado e habilitação do circuito SMTP", "type": "timeseries", "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "prometheus"}, "targets": [{"expr": "notificacoes_smtp_circuito_estado", "legendFormat": "{{instance}} / {{estado}}"}, {"expr": "notificacoes_smtp_circuito_habilitado", "legendFormat": "{{instance}} / habilitado"}]}
+  ]
+}

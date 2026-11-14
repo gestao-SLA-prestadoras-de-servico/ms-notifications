@@ -1,0 +1,37 @@
+# Testes isolados: sem portas públicas, sem dependência do Keycloak/backend existentes.
+services:
+  keycloak:
+    profiles: [test]
+    image: quay.io/keycloak/keycloak:26.4
+    command: [start-dev, --import-realm]
+    environment:
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME: http://keycloak:8080
+      IT_KEYCLOAK_PASSWORD: ${IT_KEYCLOAK_PASSWORD:?Gere uma senha temporária para o teste}
+    volumes:
+      - ./infra/keycloak/flowsla-ms-not-test-realm.json:/opt/keycloak/data/import/flowsla-ms-not-test-realm.json:ro
+    healthcheck:
+      test: [CMD-SHELL, "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+
+  keycloak-it:
+    profiles: [test]
+    build:
+      context: .
+      target: build
+    entrypoint: [mvn]
+    command: [-B, -Pkeycloak-it, verify]
+    environment:
+      IT_KEYCLOAK_URL: http://keycloak:8080
+      IT_KEYCLOAK_PASSWORD: ${IT_KEYCLOAK_PASSWORD:?Gere uma senha temporária para o teste}
+    volumes:
+      - keycloak-it-maven:/root/.m2
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+volumes:
+  keycloak-it-maven:
