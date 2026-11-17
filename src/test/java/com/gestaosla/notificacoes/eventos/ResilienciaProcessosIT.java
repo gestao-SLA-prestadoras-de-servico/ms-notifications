@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.eventos;
 
+import com.gestaosla.notificacoes.suporte.IdsTeste;
 import java.net.URI;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
@@ -203,8 +204,8 @@ class ResilienciaProcessosIT {
     private void publicar(String canal, String id) throws Exception {
         String fixture = canal.equals("email") ? "resolucao" : "atribuicao";
         var event = (ObjectNode) json.readTree(Files.readString(Path.of("docs/contratos/exemplos/validos/" + fixture + ".json")));
-        event.put("eventoId", run + "-" + id); event.put("titulo", run);
-        event.putArray("destinatarios").add(canal.equals("email") ? "teste@example.test" : "sub-teste");
+        event.put("eventoId", IdsTeste.uuid(run + "-" + id)); event.put("titulo", run);
+        event.putArray("destinatarios").add(canal.equals("email") ? "teste@example.test" : IdsTeste.uuid("sub-teste"));
         try (var connection = conexao(); var channel = connection.createChannel()) {
             channel.confirmSelect();
             var devolvida = new java.util.concurrent.atomic.AtomicBoolean();
@@ -216,12 +217,12 @@ class ResilienciaProcessosIT {
     private java.sql.Connection banco() throws Exception { return DriverManager.getConnection("jdbc:postgresql://" + postgres.getHost() + ":" + porta(postgres, 5432) + "/notificacoes?connectTimeout=2&socketTimeout=3", "teste", senha); }
     private long contar(String id) throws Exception {
         try (var c = banco(); var s = c.prepareStatement("select count(*) from notificacao_interna where evento_id=?")) {
-            s.setString(1, run + "-" + id); try (var r = s.executeQuery()) { r.next(); return r.getLong(1); }
+            s.setString(1, IdsTeste.uuid(run + "-" + id)); try (var r = s.executeQuery()) { r.next(); return r.getLong(1); }
         }
     }
     private long contarPrefixo(String prefixo, String canal) throws Exception {
         try (var c = banco(); var s = c.prepareStatement("select count(*) from evento_processado where evento_id like ? and canal=?")) {
-            s.setString(1, run + "-" + prefixo + "%"); s.setString(2, canal); try (var r = s.executeQuery()) { r.next(); return r.getLong(1); }
+            s.setString(1, IdsTeste.padrao(run + "-" + prefixo.substring(0, prefixo.length() - 1))); s.setString(2, canal); try (var r = s.executeQuery()) { r.next(); return r.getLong(1); }
         }
     }
     private String urlApp() { return "http://" + app.getHost() + ":" + porta(app, 8081); }

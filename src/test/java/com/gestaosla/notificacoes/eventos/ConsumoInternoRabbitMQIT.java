@@ -42,6 +42,8 @@ import static org.awaitility.Awaitility.await;
 @Import(ConsumoInternoRabbitMQIT.TopologiaTeste.class)
 @Timeout(40)
 class ConsumoInternoRabbitMQIT {
+    private static final String SUB_1 = "0199a000-0000-7000-8000-0000000000a1";
+    private static final String SUB_2 = "0199a000-0000-7000-8000-0000000000a2";
     private static final String TOKEN = UUID.randomUUID().toString().replace("-", "");
     private static final String SCHEMA = "it_" + TOKEN;
     private static final String EXCHANGE = "it." + TOKEN;
@@ -104,7 +106,7 @@ class ConsumoInternoRabbitMQIT {
     }
 
     @ParameterizedTest
-    @EnumSource(value = TipoEvento.class, names = {"ATRIBUICAO", "REATRIBUICAO", "REMOCAO", "REABERTURA", "CONCLUSAO", "VIOLACAO_SLA"})
+    @EnumSource(value = TipoEvento.class, names = {"ATRIBUICAO", "REMOCAO", "REABERTURA", "CONCLUSAO", "VIOLACAO"})
     void listenerRealPersisteCadaDestinatarioNaoLidoEComDadosDoEvento(TipoEvento tipo) throws Exception {
         var event = evento(tipo);
         publicar(event);
@@ -117,48 +119,49 @@ class ConsumoInternoRabbitMQIT {
             assertThat(n.getEventoId()).isEqualTo(event.get("eventoId").asText());
             assertThat(n.getTipo()).isEqualTo(tipo);
             assertThat(n.getChamadoId()).isEqualTo(event.get("chamado").get("id").asText());
-            assertThat(n.getNumeroChamado()).isEqualTo(event.get("chamado").get("numero").asText());
+            assertThat(n.getNumeroChamado()).isEqualTo("#" + event.get("chamado").get("numero").asLong());
             assertThat(n.getTitulo()).isEqualTo(event.get("titulo").asText());
             assertThat(n.getLidaEm()).isNull();
             assertThat(n.getCriadoEm()).isNotNull();
             assertThat(n.getMensagem()).contains(n.getNumeroChamado(), n.getTitulo());
         });
         assertThat(rows.stream().map(n -> n.getCriadoEm()).distinct().count()).isEqualTo(1);
-        if (tipo == TipoEvento.REATRIBUICAO) {
-            assertThat(rows).extracting(n -> n.getDestinatarioSub()).containsExactly("sub-tecnico-substituto");
+        if (tipo == TipoEvento.VIOLACAO) {
+            assertThat(rows).allSatisfy(n -> assertThat(n.getRelogio()).isEqualTo(Relogio.ATENDIMENTO_CAMPO));
+            assertThat(rows.getFirst().getMensagem()).contains("atendimento em campo");
         }
     }
 
     @Test
     void republicacoesConcorrentesNaoDuplicamNotificacoesOuSucesso() throws Exception {
-        var event = evento(TipoEvento.VIOLACAO_SLA);
+        var event = evento(TipoEvento.VIOLACAO);
         for (int i = 0; i < 25; i++) publicar(event);
-        aguardarSucesso(3);
+        aguardarSucesso(2);
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(admin.getQueueInfo(INTERNA).getMessageCount()).isZero());
         container().stop();
-        assertThat(notificacoes.count()).isEqualTo(3);
+        assertThat(notificacoes.count()).isEqualTo(2);
         assertThat(processados.count()).isEqualTo(1);
     }
 
     @Test
-    void transferenciaPorInativacaoNotificaSomenteSubstitutoDoContrato() throws Exception {
-        // O produtor seleciona os destinatários; o consumidor não infere REMOCAO para o inativado.
-        var transferencia = evento(TipoEvento.REATRIBUICAO);
-        assertThat(transferencia.get("destinatarios").get(0).asText()).isEqualTo("sub-tecnico-substituto");
-        publicar(transferencia);
-        aguardarSucesso(1);
+    void reatribuicaoChegaComoAtribuicaoParaONovoERemocaoParaOAnterior() throws Exception {
+        // O backend não tem tipo próprio de reatribuição (outbox-04): são dois eventos, cada um com seu eventoId.
+        var atribuicao = evento(TipoEvento.ATRIBUICAO);
+        atribuicao.putArray("destinatarios").add(SUB_1);
+        var remocao = evento(TipoEvento.REMOCAO);
+        remocao.putArray("destinatarios").add(SUB_2);
+        publicar(atribuicao);
+        publicar(remocao);
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> assertThat(processados.count()).isEqualTo(2));
         container().stop();
-        assertThat(notificacoes.findAll()).allSatisfy(n -> {
-            assertThat(n.getDestinatarioSub()).isEqualTo("sub-tecnico-substituto");
-            assertThat(n.getTipo()).isEqualTo(TipoEvento.REATRIBUICAO);
-        });
-        assertThat(jdbc.queryForObject("select count(*) from notificacao_interna where destinatario_sub = 'sub-tecnico-inativado' or tipo = 'REMOCAO'", Long.class)).isZero();
+        assertThat(notificacoes.findAll()).extracting(n -> n.getDestinatarioSub() + ":" + n.getTipo())
+                .containsExactlyInAnyOrder(SUB_1 + ":ATRIBUICAO", SUB_2 + ":REMOCAO");
     }
 
     @Test
     void destinatariosRepetidosNoPayloadGeramUmaNotificacaoPorSub() throws Exception {
         var event = evento(TipoEvento.ATRIBUICAO);
-        event.putArray("destinatarios").add("sub-1").add("sub-1").add("sub-2");
+        event.putArray("destinatarios").add(SUB_1).add(SUB_1).add(SUB_2);
         publicar(event);
         aguardarSucesso(2);
     }
@@ -166,11 +169,11 @@ class ConsumoInternoRabbitMQIT {
     @Test
     void falhaNoSegundoDestinatarioReverteTudoEReentregaDepoisDaRecuperacao() throws Exception {
         jdbc.execute("create sequence tentativas");
-        jdbc.execute("create function falhar_destinatario() returns trigger language plpgsql as $$ begin if new.destinatario_sub='sub-2' then perform nextval('tentativas'); raise exception 'Falha simulada' using errcode='40001'; end if; return new; end; $$");
+        jdbc.execute("create function falhar_destinatario() returns trigger language plpgsql as $$ begin if new.destinatario_sub='" + SUB_2 + "' then perform nextval('tentativas'); raise exception 'Falha simulada' using errcode='40001'; end if; return new; end; $$");
         jdbc.execute("create trigger falhar_insert before insert on notificacao_interna for each row execute function falhar_destinatario()");
         try {
             var event = evento(TipoEvento.ATRIBUICAO);
-            event.putArray("destinatarios").add("sub-1").add("sub-2");
+            event.putArray("destinatarios").add(SUB_1).add(SUB_2);
             publicar(event);
             await().atMost(Duration.ofSeconds(10)).until(() -> Boolean.TRUE.equals(jdbc.queryForObject("select is_called from tentativas", Boolean.class)));
             container().stop();
@@ -217,7 +220,7 @@ class ConsumoInternoRabbitMQIT {
     private ObjectNode evento(TipoEvento tipo) throws Exception {
         String fixture = tipo.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-') + ".json";
         var node = (ObjectNode) JSON.readTree(Files.readString(Path.of("docs/contratos/exemplos/validos", fixture)));
-        node.put("eventoId", "consumo-" + UUID.randomUUID());
+        node.put("eventoId", UUID.randomUUID().toString());
         return node;
     }
 

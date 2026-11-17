@@ -1,6 +1,9 @@
 package com.gestaosla.notificacoes.eventos;
 
-import jakarta.validation.constraints.NotBlank;
+public record ChamadoEvento(String id, long numero) {
 
-public record ChamadoEvento(@NotBlank String id, @NotBlank String numero) {
+    /** Número como o usuário o vê, ex.: {@code #1042}. */
+    public String exibicao() {
+        return "#" + numero;
+    }
 }

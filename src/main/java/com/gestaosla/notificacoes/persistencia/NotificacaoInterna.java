@@ -3,6 +3,7 @@ package com.gestaosla.notificacoes.persistencia;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.gestaosla.notificacoes.eventos.Relogio;
 import com.gestaosla.notificacoes.eventos.TipoEvento;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,6 +41,11 @@ public class NotificacaoInterna {
     @Column(nullable = false, columnDefinition = "text", updatable = false)
     private String titulo;
 
+    /** Só em VIOLACAO. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20, updatable = false)
+    private Relogio relogio;
+
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
 
@@ -49,13 +55,14 @@ public class NotificacaoInterna {
     protected NotificacaoInterna() { }
 
     public NotificacaoInterna(String destinatarioSub, String eventoId, TipoEvento tipo,
-            String chamadoId, String numeroChamado, String titulo, Instant criadoEm) {
+            String chamadoId, String numeroChamado, String titulo, Relogio relogio, Instant criadoEm) {
         this.destinatarioSub = destinatarioSub;
         this.eventoId = eventoId;
         this.tipo = tipo;
         this.chamadoId = chamadoId;
         this.numeroChamado = numeroChamado;
         this.titulo = titulo;
+        this.relogio = relogio;
         this.criadoEm = criadoEm;
     }
 
@@ -66,6 +73,7 @@ public class NotificacaoInterna {
     public String getChamadoId() { return chamadoId; }
     public String getNumeroChamado() { return numeroChamado; }
     public String getTitulo() { return titulo; }
+    public Relogio getRelogio() { return relogio; }
     public Instant getCriadoEm() { return criadoEm; }
     public Instant getLidaEm() { return lidaEm; }
 
@@ -75,11 +83,11 @@ public class NotificacaoInterna {
         String chamado = "chamado " + numeroChamado + " — " + titulo;
         return switch (tipo) {
             case ATRIBUICAO -> "Você foi atribuído ao " + chamado + ".";
-            case REATRIBUICAO -> "O " + chamado + " foi reatribuído a você.";
             case REMOCAO -> "Você foi removido do " + chamado + ".";
             case REABERTURA -> "O " + chamado + " foi reaberto.";
             case CONCLUSAO -> "O atendimento do " + chamado + " foi concluído.";
-            case VIOLACAO_SLA -> "O " + chamado + " teve um prazo de SLA violado.";
+            case VIOLACAO -> "O " + chamado + " teve o prazo de SLA de "
+                    + (relogio == null ? "atendimento" : relogio.descricao()) + " violado.";
             default -> throw new IllegalStateException("Tipo incompatível com notificação interna");
         };
     }

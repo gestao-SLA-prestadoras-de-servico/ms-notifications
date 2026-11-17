@@ -1,53 +1,67 @@
 package com.gestaosla.notificacoes.eventos;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.util.EnumMap;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
-import jakarta.validation.Validator;
+import com.networknt.schema.Schema;
+import com.networknt.schema.SchemaRegistry;
+import com.networknt.schema.SchemaRegistryConfig;
+import com.networknt.schema.SpecificationVersion;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.cfg.CoercionAction;
-import tools.jackson.databind.cfg.CoercionInputShape;
-import tools.jackson.databind.cfg.EnumFeature;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.type.LogicalType;
 
-/** Ponto de entrada para desserializar e validar o corpo JSON recebido do broker. */
+/**
+ * Ponto de entrada para desserializar e validar o corpo JSON recebido do broker.
+ *
+ * <p>Valida com os JSON Schemas do app-principal (cópia de {@code backend/contratos/notificacoes/}), com
+ * {@code format} conferido: no draft 2020-12 ele é só anotação por padrão, e "amanhã" passaria como data
+ * (regra 8 de CONVENÇÕES_RABBITMQ.md).
+ */
 @Component
 public class LeitorEventoNotificacao {
-    private final Validator validator;
     private final JsonMapper mapper = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(EnumFeature.FAIL_ON_NUMBERS_FOR_ENUMS)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .withCoercionConfig(LogicalType.Textual, config -> config
-                    .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)
-                    .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)
-                    .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail))
             .build();
+    private final Map<TipoEvento, Schema> schemas = new EnumMap<>(TipoEvento.class);
 
-    public LeitorEventoNotificacao(Validator validator) {
-        this.validator = validator;
+    public LeitorEventoNotificacao() {
+        var registro = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12, r -> r
+                .schemaRegistryConfig(SchemaRegistryConfig.builder().formatAssertionsEnabled(true).build()));
+        for (TipoEvento tipo : TipoEvento.values()) {
+            String caminho = "/contratos/notificacoes/" + tipo.arquivoSchema();
+            try (InputStream arquivo = getClass().getResourceAsStream(caminho)) {
+                if (arquivo == null) {
+                    throw new IllegalStateException("Schema ausente: " + caminho);
+                }
+                schemas.put(tipo, registro.getSchema(mapper.readTree(arquivo)));
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+        }
     }
 
     public EventoNotificacao ler(String payload) {
         if (payload == null || payload.isBlank()) {
             throw new EventoInvalidoException();
         }
-        EventoNotificacao evento;
         try {
-            evento = mapper.readValue(payload, EventoNotificacao.class);
+            JsonNode json = mapper.readTree(payload);
+            Schema schema = schemas.get(tipo(json));
+            // Os erros de validação podem conter dados pessoais do payload; não são propagados.
+            if (schema == null || !schema.validate(json).isEmpty()) {
+                throw new EventoInvalidoException();
+            }
+            return mapper.treeToValue(json, EventoNotificacao.class);
         } catch (JacksonException ex) {
-            // A exceção de desserialização pode conter dados pessoais do payload.
             throw new EventoInvalidoException();
         }
-        if (evento == null || !validator.validate(evento).isEmpty()) {
-            throw new EventoInvalidoException();
-        }
-        if (evento.tipo().canal() == CanalNotificacao.EMAIL
-                && !validator.validate(evento, EventoNotificacao.EmailCanal.class).isEmpty()) {
-            throw new EventoInvalidoException();
-        }
-        return evento;
     }
 
     /** Também impede que um evento seja processado no canal incorreto. */
@@ -57,5 +71,17 @@ public class LeitorEventoNotificacao {
             throw new EventoInvalidoException();
         }
         return evento;
+    }
+
+    private static TipoEvento tipo(JsonNode json) {
+        JsonNode tipo = json.get("tipo");
+        if (tipo == null || !tipo.isString()) {
+            return null;
+        }
+        try {
+            return TipoEvento.valueOf(tipo.stringValue());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

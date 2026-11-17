@@ -63,9 +63,9 @@ class ConfirmacaoRabbitMQIT {
         connection = factory.newConnection();
         channel = connection.createChannel();
         queue = channel.queueDeclare("", false, true, false, null).getQueue();
-        eventoId = "ack-" + UUID.randomUUID();
+        eventoId = UUID.randomUUID().toString();
         payload = Files.readString(Path.of("docs/contratos/exemplos/validos/atribuicao.json"))
-                .replace("evento-1", eventoId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                .replace("0199b000-0000-7000-8000-000000000001", eventoId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         channel.confirmSelect();
         channel.basicPublish("", queue, MessageProperties.PERSISTENT_BASIC, payload);
         channel.waitForConfirmsOrDie(5000);
@@ -136,7 +136,7 @@ class ConfirmacaoRabbitMQIT {
 
     private void gravar(EventoNotificacao event) {
         notificacoes.saveAndFlush(new NotificacaoInterna(event.destinatarios().getFirst(), event.eventoId(), event.tipo(),
-                event.chamado().id(), event.chamado().numero(), event.titulo(), Instant.parse("2026-11-11T13:00:00Z")));
+                event.chamado().id(), event.chamado().exibicao(), event.titulo(), null, Instant.parse("2026-11-11T13:00:00Z")));
     }
 
     private GetResponse receber(Channel from) {

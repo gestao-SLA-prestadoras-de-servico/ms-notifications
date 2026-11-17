@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.gestaosla.notificacoes.eventos.CanalNotificacao;
+import com.gestaosla.notificacoes.eventos.Relogio;
 import com.gestaosla.notificacoes.eventos.TipoEvento;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,12 +56,34 @@ class PersistenciaPostgresIT {
     }
 
     @Test
+    void v2ConverteTiposDoContratoAntigoSemPerderNotificacoes() {
+        // Banco já em produção na V1, com os nomes do rascunho do ms; a V2 alinha ao contrato do backend.
+        String schema = "it_v2_" + UUID.randomUUID().toString().replace("-", "");
+        var dataSource = jdbc.getDataSource();
+        Flyway.configure().dataSource(dataSource).schemas(schema).target("1").load().migrate();
+        var antigo = new JdbcTemplate(dataSource);
+        for (String tipo : List.of("VIOLACAO_SLA", "REATRIBUICAO", "REMOCAO")) {
+            antigo.update("insert into " + schema + ".notificacao_interna (id, destinatario_sub, evento_id, tipo, chamado_id, "
+                    + "numero_chamado, titulo, criado_em) values (?, 'sub', ?, ?, 'c', '#1', 't', now())",
+                    UUID.randomUUID(), tipo, tipo);
+        }
+        Flyway.configure().dataSource(dataSource).schemas(schema).load().migrate();
+        assertThat(antigo.queryForList("select tipo from " + schema + ".notificacao_interna order by evento_id", String.class))
+                .containsExactly("ATRIBUICAO", "REMOCAO", "VIOLACAO"); // REATRIBUICAO, REMOCAO, VIOLACAO_SLA
+        assertThat(antigo.queryForObject("select count(*) from " + schema + ".notificacao_interna where relogio is null", Long.class))
+                .isEqualTo(3);
+        assertThatThrownBy(() -> antigo.update("update " + schema + ".notificacao_interna set relogio = 'RESPOSTA' where tipo = 'REMOCAO'"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        antigo.execute("drop schema " + schema + " cascade");
+    }
+
+    @Test
     void migraSchemaVazioEValidaSemReaplicarAVersao() {
         flyway.validate();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.migrate().migrationsExecuted).isZero();
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success and version='1'", Long.class))
-                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2')", Long.class))
+                .isEqualTo(2);
         var indices = jdbc.queryForList("select indexdef from pg_indexes where schemaname=? and tablename='notificacao_interna'", String.class, SCHEMA);
         assertThat(indices).anyMatch(sql -> sql.contains("(destinatario_sub, criado_em DESC, id DESC)"));
         assertThat(indices).anyMatch(sql -> sql.contains("(destinatario_sub) WHERE (lida_em IS NULL)"));
@@ -71,12 +94,13 @@ class PersistenciaPostgresIT {
     void persisteTodosOsCamposSemTruncarTituloEComLeituraInicialNula() {
         String titulo = "Manutenção – equipamento #1042 ".repeat(30);
         var nova = notificacoes.saveAndFlush(new NotificacaoInterna("sub-tecnico", "sla:1042:ATENDIMENTO:marco",
-                TipoEvento.VIOLACAO_SLA, "chamado-opaco", "#1042", titulo, CRIADO_EM));
+                TipoEvento.VIOLACAO, "chamado-opaco", "#1042", titulo, Relogio.RESOLUCAO, CRIADO_EM));
         var salva = notificacoes.findById(nova.getId()).orElseThrow();
         assertThat(salva.getId()).isNotNull();
         assertThat(salva.getDestinatarioSub()).isEqualTo("sub-tecnico");
         assertThat(salva.getEventoId()).isEqualTo("sla:1042:ATENDIMENTO:marco");
-        assertThat(salva.getTipo()).isEqualTo(TipoEvento.VIOLACAO_SLA);
+        assertThat(salva.getTipo()).isEqualTo(TipoEvento.VIOLACAO);
+        assertThat(salva.getRelogio()).isEqualTo(Relogio.RESOLUCAO);
         assertThat(salva.getChamadoId()).isEqualTo("chamado-opaco");
         assertThat(salva.getNumeroChamado()).isEqualTo("#1042");
         assertThat(salva.getTitulo()).isEqualTo(titulo);
@@ -172,6 +196,6 @@ class PersistenciaPostgresIT {
     }
 
     private NotificacaoInterna nova(String evento, String sub, Instant criadoEm) {
-        return new NotificacaoInterna(sub, evento, TipoEvento.ATRIBUICAO, "1042", "#1042", "Manutenção", criadoEm);
+        return new NotificacaoInterna(sub, evento, TipoEvento.ATRIBUICAO, "1042", "#1042", "Manutenção", null, criadoEm);
     }
 }

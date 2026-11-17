@@ -158,15 +158,14 @@ Detalhes: [implementação](docs/tasks/ms-not-05-idempotencia-concorrencia.md) e
 | Tipo | Mensagem em texto simples |
 |---|---|
 | `ATRIBUICAO` | Você foi atribuído ao chamado {número} — {título}. |
-| `REATRIBUICAO` | O chamado {número} — {título} foi reatribuído a você. |
 | `REMOCAO` | Você foi removido do chamado {número} — {título}. |
 | `REABERTURA` | O chamado {número} — {título} foi reaberto. |
 | `CONCLUSAO` | O atendimento do chamado {número} — {título} foi concluído. |
-| `VIOLACAO_SLA` | O chamado {número} — {título} teve um prazo de SLA violado. |
+| `VIOLACAO` | O chamado {número} — {título} teve o prazo de SLA de {resposta \| atendimento em campo \| resolução} violado. |
 
-O texto é calculado por `NotificacaoInterna.getMensagem()` com os campos persistidos (`@Transient`); não há coluna redundante nem alteração na V1. O título original é preservado. A futura API poderá expor esse texto; o frontend deverá tratá-lo como texto, sem interpretar HTML fornecido no título.
+O texto é calculado por `NotificacaoInterna.getMensagem()` com os campos persistidos (`@Transient`); O relógio violado fica na coluna `relogio`, criada pela V2. O título original é preservado. A futura API poderá expor esse texto; o frontend deverá tratá-lo como texto, sem interpretar HTML fornecido no título.
 
-O consumidor não consulta backend, Keycloak ou SMTP. O produtor é responsável por selecionar gestores/técnicos conforme as regras e, na inativação, enviar somente o substituto em `REATRIBUICAO`, sem emitir `REMOCAO` para o inativado. Uma notificação de remoção mantém a referência do chamado para identificação e não concede acesso a ele; a autorização continua responsabilidade do app-principal. Destinatários repetidos na mesma lista são consolidados pelo `sub`, sem normalizar ou modificar identificadores opacos.
+O consumidor não consulta backend, Keycloak ou SMTP. O produtor é responsável por selecionar gestores/técnicos conforme as regras. A reatribuição chega como `ATRIBUICAO` para o técnico novo e `REMOCAO` para o anterior (contrato em [docs/contratos/eventos.md](docs/contratos/eventos.md)). Uma notificação de remoção mantém a referência do chamado para identificação e não concede acesso a ele; a autorização continua responsabilidade do app-principal. Destinatários repetidos na mesma lista são consolidados pelo `sub`, sem normalizar ou modificar identificadores opacos.
 
 Mensagens inválidas, desconhecidas ou de e-mail recebidas na fila interna seguem diretamente para a DLQ por publicação confirmada. Falhas temporárias de banco recebem até três retries com backoff; falhas definitivas e esgotamento seguem à DLQ. Falhas de I/O no ACK são propagadas para recuperação do canal; o marcador já confirmado protege a próxima entrega. Os logs não incluem corpo, e-mail, posicionamento ou stack trace contendo payload.
 
@@ -183,15 +182,15 @@ Detalhes: [implementação](docs/tasks/ms-not-06-consumo-interno.md) e [testes](
 
 ## E-mails ao cliente — MS-NOT-07
 
-`ConsumidorEmailCliente` inicia automaticamente na fila `notificacoes.email`, valida o contrato/canal e executa `EnviadorEmailCliente` dentro do coordenador idempotente. O serviço usa `JavaMailSender`, exige a transação existente e envia um envelope individual por endereço distinto recebido no evento. Não consulta o backend ou o cadastro de clientes. O produtor deve informar o e-mail de contato correto; destinatários internos não são convertidos em e-mail.
+`ConsumidorEmailCliente` inicia automaticamente na fila `notificacoes.email`, valida o contrato/canal e executa `EnviadorEmailCliente` dentro do coordenador idempotente. O serviço usa `JavaMailSender`, exige a transação existente e envia um envelope por endereço; o contrato do backend tem exatamente um, o de contato do cliente. Não consulta o backend ou o cadastro de clientes. O produtor deve informar o e-mail de contato correto; destinatários internos não são convertidos em e-mail.
 
 | Tipo | Assunto (seguido de número e título) | Conteúdo |
 |---|---|---|
-| `PRIMEIRO_POSICIONAMENTO` | `[FlowSLA] Primeiro posicionamento` | Posicionamento registrado pelo gestor, incluindo o texto obrigatório do evento |
+| `POSICIONAMENTO` | `[FlowSLA] Primeiro posicionamento` | Posicionamento registrado pelo gestor, incluindo o texto obrigatório do evento |
 | `RESOLUCAO` | `[FlowSLA] Chamado resolvido` | Informa a resolução e orienta validar ou reabrir o chamado no sistema |
-| `AVISO_ENCERRAMENTO` | `[FlowSLA] Validação automática próxima` | Avisa a proximidade da validação/encerramento e orienta conferir a solução |
+| `AVISO_ENCERRAMENTO` | `[FlowSLA] Validação automática próxima` | Informa a data e a hora da validação/encerramento automáticos (`encerramentoPrevistoEm`, no horário de Brasília) e orienta conferir a solução |
 
-Os três e-mails incluem número e título do chamado em texto e HTML, com UTF-8 e alternativas MIME para os dois formatos. Número, título e posicionamento são escapados em HTML; quebras de linha do posicionamento viram `<br>`. Quebras CR/LF são removidas do assunto. Cada destinatário recebe somente seu próprio endereço no cabeçalho `To`. O aviso não calcula datas nem agenda o envio: o app-principal deve gerar o evento um dia útil antes do encerramento, conforme RN-34. Não se usa “amanhã” no conteúdo, pois a entrega pode ser atrasada na fila.
+Os três e-mails incluem número e título do chamado em texto e HTML, com UTF-8 e alternativas MIME para os dois formatos. Número, título e posicionamento são escapados em HTML; quebras de linha do posicionamento viram `<br>`. Quebras CR/LF são removidas do assunto. Cada destinatário recebe somente seu próprio endereço no cabeçalho `To`. O aviso não calcula a data (ela vem no evento) nem agenda o envio: o app-principal deve gerar o evento um dia útil antes do encerramento, conforme RN-34. Não se usa “amanhã” no conteúdo, pois a entrega pode ser atrasada na fila.
 
 O marcador `EMAIL` é gravado somente após todos os envios terminarem, e o ACK vem após o commit. E-mail, corpo e texto do posicionamento não são persistidos; os logs do listener registram somente a categoria da falha, sem destinatário, payload ou mensagem de exceção SMTP. Republicações de eventos concluídos não reenviam. A janela SMTP entre aceitação e gravação do sucesso, descrita na MS-NOT-05, permanece: queda/falha no commit ou envio parcial pode produzir e-mail duplicado na próxima entrega.
 

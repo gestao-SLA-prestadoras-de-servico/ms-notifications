@@ -111,7 +111,7 @@ class ConsumoEmailMailpitIT {
         admin.purgeQueue(EMAIL, false); admin.purgeQueue(INTERNA, false); admin.purgeQueue(DLQ, false);
         notificacoes.deleteAll(); processados.deleteAll();
         caso = UUID.randomUUID().toString();
-        eventoId = "email-" + caso;
+        eventoId = caso;
         destinatario = "cliente-" + caso + "@example.com";
         smtpPort = sender.getPort();
         clearInvocations(sender);
@@ -129,7 +129,7 @@ class ConsumoEmailMailpitIT {
     }
 
     @ParameterizedTest
-    @EnumSource(value = TipoEvento.class, names = {"PRIMEIRO_POSICIONAMENTO", "RESOLUCAO", "AVISO_ENCERRAMENTO"})
+    @EnumSource(value = TipoEvento.class, names = {"POSICIONAMENTO", "RESOLUCAO", "AVISO_ENCERRAMENTO"})
     void enviaTresTiposAoContatoComTextoHtmlEAssuntoCorrespondentes(TipoEvento tipo) throws Exception {
         var event = evento(tipo);
         publicar(event, "email");
@@ -141,9 +141,12 @@ class ConsumoEmailMailpitIT {
         assertThat(mail.get("To").get(0).get("Address").asText()).isEqualTo(destinatario);
         assertThat(mail.get("Text").asText()).contains("#1042", event.get("titulo").asText());
         assertThat(mail.get("HTML").asText()).contains("#1042", event.get("titulo").asText());
-        if (tipo == TipoEvento.PRIMEIRO_POSICIONAMENTO) {
+        if (tipo == TipoEvento.POSICIONAMENTO) {
             assertThat(mail.get("Text").asText()).contains(event.get("textoPosicionamento").asText());
             assertThat(mail.get("HTML").asText()).contains(event.get("textoPosicionamento").asText());
+        }
+        if (tipo == TipoEvento.AVISO_ENCERRAMENTO) {
+            assertThat(mail.get("Text").asText()).contains("12/11/2026 às 17:00");
         }
         assertThat(notificacoes.count()).isZero();
         assertThat(processados.count()).isEqualTo(1);
@@ -151,7 +154,7 @@ class ConsumoEmailMailpitIT {
 
     @Test
     void htmlCapturadoEscapaConteudoDoClienteEPreservaQuebras() throws Exception {
-        var event = evento(TipoEvento.PRIMEIRO_POSICIONAMENTO);
+        var event = evento(TipoEvento.POSICIONAMENTO);
         event.put("titulo", "<img src=x> & \"ação\" " + caso);
         event.put("textoPosicionamento", "Linha 1\n<script>alert('x')</script>");
         publicar(event, "email");
@@ -160,22 +163,6 @@ class ConsumoEmailMailpitIT {
         assertThat(mail.get("HTML").asText()).contains("&lt;img src=x&gt;", "&amp;", "&quot;", "Linha 1<br>&lt;script&gt;")
                 .doesNotContain("<script>", "<img");
         assertThat(mail.get("Text").asText()).contains("<img src=x>", "<script>alert('x')</script>");
-    }
-
-    @Test
-    void contatosRecebemEnvelopesIndividuaisSemExporOutroEndereco() throws Exception {
-        var event = evento(TipoEvento.RESOLUCAO);
-        String outro = "outro-" + caso + "@example.com";
-        event.putArray("destinatarios").add(destinatario).add(destinatario).add(outro);
-        publicar(event, "email");
-        aguardarEnvio(2);
-        var addresses = new ArrayList<String>();
-        for (var mail : capturados()) {
-            assertThat(mail.get("To").size()).isEqualTo(1);
-            addresses.add(mail.get("To").get(0).get("Address").asText());
-        }
-        assertThat(addresses).containsExactlyInAnyOrder(destinatario, outro);
-        assertThat(processados.count()).isEqualTo(1);
     }
 
     @Test
@@ -191,12 +178,14 @@ class ConsumoEmailMailpitIT {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"SEM_TEXTO", "EMAIL_INVALIDO", "ATRIBUICAO"})
+    @ValueSource(strings = {"SEM_TEXTO", "EMAIL_INVALIDO", "DOIS_EMAILS", "ATRIBUICAO"})
     void mensagemInvalidaOuInternaVaiParaDlqSemSmtp(String casoInvalido) throws Exception {
         var event = evento(TipoEvento.RESOLUCAO);
         switch (casoInvalido) {
-            case "SEM_TEXTO" -> event.put("tipo", "PRIMEIRO_POSICIONAMENTO");
+            case "SEM_TEXTO" -> event.put("tipo", "POSICIONAMENTO");
             case "EMAIL_INVALIDO" -> event.putArray("destinatarios").add("email-invalido");
+            // O contrato do backend tem exatamente 1 e-mail, o de contato do cliente (maxItems 1).
+            case "DOIS_EMAILS" -> event.putArray("destinatarios").add(destinatario).add("outro-" + caso + "@example.com");
             default -> event.put("tipo", "ATRIBUICAO");
         }
         publicar(event, "email");
@@ -213,12 +202,13 @@ class ConsumoEmailMailpitIT {
         publicar(evento(TipoEvento.RESOLUCAO), "email");
         await().atMost(Duration.ofSeconds(10)).until(() -> mockingDetails(sender).getInvocations().stream().anyMatch(i -> i.getMethod().getName().equals("send")));
         var interno = evento(TipoEvento.ATRIBUICAO);
-        interno.put("eventoId", "interna-" + caso);
-        interno.putArray("destinatarios").add("sub-tecnico");
+        String internoId = UUID.nameUUIDFromBytes(("interna-" + caso).getBytes(StandardCharsets.UTF_8)).toString();
+        interno.put("eventoId", internoId);
+        interno.putArray("destinatarios").add("0199a000-0000-7000-8000-0000000000b1");
         publicar(interno, "interna");
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
             assertThat(notificacoes.count()).isEqualTo(1);
-            assertThat(processados.existsByEventoIdAndCanal("interna-" + caso, CanalNotificacao.INTERNA)).isTrue();
+            assertThat(processados.existsByEventoIdAndCanal(internoId, CanalNotificacao.INTERNA)).isTrue();
         });
         email().stop();
         assertThat(processados.existsByEventoIdAndCanal(eventoId, CanalNotificacao.EMAIL)).isFalse();

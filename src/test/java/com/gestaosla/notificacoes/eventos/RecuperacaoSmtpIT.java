@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.eventos;
 
+import com.gestaosla.notificacoes.suporte.IdsTeste;
 import static com.gestaosla.notificacoes.suporte.ConfiguracaoIT.valor;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -101,7 +102,7 @@ class RecuperacaoSmtpIT {
         int porta = sender.getPort();
         try {
             sender.setPort(1); // Recusa TCP real; envio e sonda usam o mesmo endpoint indisponível.
-            publicar("resolucao", "email", "smtp-primeiro-" + TOKEN, 3);
+            publicar("resolucao", "email", IdsTeste.uuid("smtp-primeiro-" + TOKEN), 3);
             await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
                 assertThat(circuito.getState()).isEqualTo(CircuitBreaker.State.OPEN);
                 assertThat(metricas.get("notificacoes.smtp.circuito.estado").tag("estado", "OPEN").gauge().value()).isEqualTo(1);
@@ -113,11 +114,11 @@ class RecuperacaoSmtpIT {
             assertThat(original).isNotNull();
             assertThat(original.getMessageProperties().getHeaders().get(ProcessadorEntrega.TENTATIVA)).isEqualTo(3);
             rabbit.send(EMAIL, original);
-            for (int i = 0; i < 10; i++) publicar("resolucao", "email", "smtp-pendente-" + TOKEN + "-" + i, 4);
-            publicar("atribuicao", "interna", "sino-" + TOKEN, 1);
+            for (int i = 0; i < 10; i++) publicar("resolucao", "email", IdsTeste.uuid("smtp-pendente-" + TOKEN + "-" + i), 4);
+            publicar("atribuicao", "interna", IdsTeste.uuid("sino-" + TOKEN), 1);
             await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
                 assertThat(notificacoes.count()).isPositive();
-                assertThat(processados.existsByEventoIdAndCanal("sino-" + TOKEN, CanalNotificacao.INTERNA)).isTrue();
+                assertThat(processados.existsByEventoIdAndCanal(IdsTeste.uuid("sino-" + TOKEN), CanalNotificacao.INTERNA)).isTrue();
             });
             await().during(Duration.ofMillis(600)).atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
                 assertThat(email().isRunning()).isFalse();
@@ -144,7 +145,7 @@ class RecuperacaoSmtpIT {
                 assertThat(pendente).isNotNull();
                 String id = JSON.readTree(pendente.getBody()).get("eventoId").asText();
                 assertThat(pendente.getMessageProperties().getHeaders().get(ProcessadorEntrega.TENTATIVA))
-                        .isEqualTo(id.contains("primeiro") ? 3 : 4);
+                        .isEqualTo(id.equals(IdsTeste.uuid("smtp-primeiro-" + TOKEN)) ? 3 : 4);
                 pendentes.add(pendente);
             }
             for (var pendente : pendentes) rabbit.send(EMAIL, pendente);
@@ -179,7 +180,7 @@ class RecuperacaoSmtpIT {
     private void publicar(String fixture, String canal, String id, int tentativa) throws Exception {
         var evento = (ObjectNode) JSON.readTree(Files.readString(Path.of("docs/contratos/exemplos/validos/" + fixture + ".json")));
         evento.put("eventoId", id); evento.put("titulo", "Circuito " + TOKEN);
-        evento.putArray("destinatarios").add(canal.equals("email") ? "smtp-" + TOKEN + "@example.com" : "gestor-" + TOKEN);
+        evento.putArray("destinatarios").add(canal.equals("email") ? "smtp-" + TOKEN + "@example.com" : IdsTeste.uuid("gestor-" + TOKEN));
         var properties = new MessageProperties();
         properties.setContentType("application/json");
         properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);

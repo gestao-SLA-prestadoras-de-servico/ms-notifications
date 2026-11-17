@@ -1,36 +1,25 @@
 package com.gestaosla.notificacoes.eventos;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-
+/**
+ * Payload publicado pela outbox do app-principal. A validação é feita pelos JSON Schemas de
+ * {@code contratos/notificacoes/} antes do mapeamento (ver {@link LeitorEventoNotificacao}).
+ *
+ * @param relogio só em VIOLACAO
+ * @param textoPosicionamento só em POSICIONAMENTO
+ * @param encerramentoPrevistoEm só em AVISO_ENCERRAMENTO
+ */
 public record EventoNotificacao(
-        @NotBlank String eventoId,
-        @NotNull TipoEvento tipo,
-        @NotNull @Valid ChamadoEvento chamado,
-        @NotBlank String titulo,
-        @NotEmpty List<@NotBlank @Email(groups = EmailCanal.class) String> destinatarios,
-        String textoPosicionamento) {
-
-    /** Grupo adicional aplicado pelo leitor apenas aos eventos de e-mail. */
-    public interface EmailCanal { }
-
-    @JsonIgnore
-    @AssertTrue(message = "textoPosicionamento deve ser preenchido somente no primeiro posicionamento")
-    public boolean isTextoPosicionamentoValido() {
-        if (tipo == null) {
-            return true; // @NotNull identifica a ausência do tipo.
-        }
-        return tipo == TipoEvento.PRIMEIRO_POSICIONAMENTO
-                ? textoPosicionamento != null && !textoPosicionamento.isBlank()
-                : textoPosicionamento == null;
-    }
+        String eventoId,
+        TipoEvento tipo,
+        ChamadoEvento chamado,
+        String titulo,
+        List<String> destinatarios,
+        Relogio relogio,
+        String textoPosicionamento,
+        OffsetDateTime encerramentoPrevistoEm) {
 
     // Evita exposição acidental de e-mail e texto fornecido pelo usuário em logs.
     @Override

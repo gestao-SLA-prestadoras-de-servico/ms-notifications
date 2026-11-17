@@ -243,7 +243,7 @@ class NotificacoesApiPostgresIT {
     }
     private NotificacaoInterna nova(String sub, Instant criado) {
         return repository.saveAndFlush(new NotificacaoInterna(sub, UUID.randomUUID().toString(), TipoEvento.ATRIBUICAO,
-                "chamado-opaco", "#1042", "Manutenção", criado));
+                "chamado-opaco", "#1042", "Manutenção", null, criado));
     }
     private Jwt jwt(String sub, String role) {
         return Jwt.withTokenValue(role).header("alg", "RS256").subject(sub).claim("realm_access", Map.of("roles", List.of(role)))

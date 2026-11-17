@@ -1,13 +1,15 @@
 package com.gestaosla.notificacoes.eventos;
 
+import java.util.Locale;
+
+/** Tipos de {@code outbox.api.EventoNotificacao.Tipo} do app-principal. A reatribuição chega como ATRIBUICAO + REMOCAO. */
 public enum TipoEvento {
     ATRIBUICAO(CanalNotificacao.INTERNA),
-    REATRIBUICAO(CanalNotificacao.INTERNA),
     REMOCAO(CanalNotificacao.INTERNA),
     REABERTURA(CanalNotificacao.INTERNA),
     CONCLUSAO(CanalNotificacao.INTERNA),
-    VIOLACAO_SLA(CanalNotificacao.INTERNA),
-    PRIMEIRO_POSICIONAMENTO(CanalNotificacao.EMAIL),
+    VIOLACAO(CanalNotificacao.INTERNA),
+    POSICIONAMENTO(CanalNotificacao.EMAIL),
     RESOLUCAO(CanalNotificacao.EMAIL),
     AVISO_ENCERRAMENTO(CanalNotificacao.EMAIL);
 
@@ -19,5 +21,10 @@ public enum TipoEvento {
 
     public CanalNotificacao canal() {
         return canal;
+    }
+
+    /** Arquivo do schema em {@code contratos/notificacoes/}, com o mesmo nome do backend. */
+    String arquivoSchema() {
+        return name().toLowerCase(Locale.ROOT).replace('_', '-') + ".schema.json";
     }
 }

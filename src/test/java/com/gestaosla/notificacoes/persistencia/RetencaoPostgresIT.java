@@ -91,6 +91,6 @@ class RetencaoPostgresIT {
 
     private void criar(String evento, Instant criado) {
         notificacoes.saveAndFlush(new NotificacaoInterna("sub", evento, TipoEvento.ATRIBUICAO,
-                "chamado", "#1", "Titulo", criado));
+                "chamado", "#1", "Titulo", null, criado));
     }
 }

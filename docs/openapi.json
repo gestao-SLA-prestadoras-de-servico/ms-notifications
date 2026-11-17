@@ -61,7 +61,7 @@
         "required": ["id", "tipo", "chamadoId", "numeroChamado", "titulo", "mensagem", "criadoEm", "lidaEm"],
         "properties": {
           "id": {"type": "string", "format": "uuid"},
-          "tipo": {"type": "string", "enum": ["ATRIBUICAO", "REATRIBUICAO", "REMOCAO", "REABERTURA", "CONCLUSAO", "VIOLACAO_SLA"]},
+          "tipo": {"type": "string", "enum": ["ATRIBUICAO", "REMOCAO", "REABERTURA", "CONCLUSAO", "VIOLACAO"]},
           "chamadoId": {"type": "string", "description": "Identificador opaco do chamado para navegação; não concede acesso ao chamado."},
           "numeroChamado": {"type": "string"}, "titulo": {"type": "string"},
           "mensagem": {"type": "string", "description": "Texto simples; renderizar como texto, sem interpretar HTML."},

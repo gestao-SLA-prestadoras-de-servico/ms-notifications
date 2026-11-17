@@ -26,7 +26,7 @@ public class PersistidorNotificacaoInterna {
         var criadoEm = clock.instant();
         var notificacoes = evento.destinatarios().stream().distinct()
                 .map(sub -> new NotificacaoInterna(sub, evento.eventoId(), evento.tipo(),
-                        evento.chamado().id(), evento.chamado().numero(), evento.titulo(), criadoEm))
+                        evento.chamado().id(), evento.chamado().exibicao(), evento.titulo(), evento.relogio(), criadoEm))
                 .toList();
         repository.saveAllAndFlush(notificacoes);
     }

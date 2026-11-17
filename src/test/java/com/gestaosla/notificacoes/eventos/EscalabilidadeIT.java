@@ -1,5 +1,6 @@
 package com.gestaosla.notificacoes.eventos;
 
+import com.gestaosla.notificacoes.suporte.IdsTeste;
 import java.net.URI;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
@@ -80,8 +81,8 @@ class EscalabilidadeIT {
     private byte[] evento(String id, String canal) throws Exception {
         var node = (ObjectNode) json.readTree(Files.readString(Path.of("docs/contratos/exemplos/validos/"
                 + (canal.equals("email") ? "resolucao" : "atribuicao") + ".json")));
-        node.put("eventoId", id); node.put("titulo", "MSNOT16-" + id);
-        node.putArray("destinatarios").add(canal.equals("email") ? id + "@example.test" : "sub-interno");
+        node.put("eventoId", IdsTeste.uuid(id)); node.put("titulo", "MSNOT16-" + id);
+        node.putArray("destinatarios").add(canal.equals("email") ? id + "@example.test" : IdsTeste.uuid("sub-interno"));
         return json.writeValueAsBytes(node);
     }
 
@@ -147,7 +148,7 @@ class EscalabilidadeIT {
             for (int i = 0; i < 8; i++) aquecimento.add(evento("aquecimento-" + i, "email"));
             publicar(aquecimento, "email");
             aguardar(() -> {
-                assertThat(contar("EMAIL", "aquecimento-%")).isEqualTo(8);
+                assertThat(contar("EMAIL", IdsTeste.padrao("aquecimento"))).isEqualTo(8);
                 assertThat(total("notificacoes_entregas_total", "canal=\"email\"")).isEqualTo(8);
                 for (var app : apps) assertThat(metrica(metricas(app), "notificacoes_eventos_processados_total", "canal=\"email\"")).isPositive();
             });
@@ -177,8 +178,8 @@ class EscalabilidadeIT {
                     falhas += metrica(metricas, "notificacoes_falhas_total", "");
                     cpu.add(metrica(metricas, "process_cpu_usage", ""));
                 }
-                confirmados = contar("EMAIL", "carga-%");
-                long internas = contar("INTERNA", "interno");
+                confirmados = contar("EMAIL", IdsTeste.padrao("carga"));
+                long internas = contar("INTERNA", IdsTeste.uuid("interno"));
                 tempoMs = (System.nanoTime() - inicio) / 1_000_000;
                 if (internoMs < 0 && internas == 1) internoMs = tempoMs;
                 amostras.add(Map.of("tempoMs", tempoMs, "confirmados", confirmados, "entregas", entregas - entregasAntes,

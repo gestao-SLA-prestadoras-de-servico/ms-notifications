@@ -1,97 +1,76 @@
 # Contrato dos eventos de notificação
 
-Implementação da MS-NOT-02, baseada nas RN-33 a RN-41, RN-46, RN-52 a RN-54,
-RN-58 e RN-135 de [flowSLA.md](../flowSLA.md). O app-principal é o produtor;
-o ms-notificacoes é o consumidor. O backend local ainda não possui DTO ou
-publicador de notificações: este formato é a proposta de integração a ser
-adotada pelo produtor, e não uma confirmação de compatibilidade já testada.
+O contrato é do app-principal, que é o produtor. A fonte única são os JSON Schemas
+(draft 2020-12) de `backend/contratos/notificacoes/<tipo>.schema.json`, gerados dos
+records de `outbox.api.EventoNotificacao` (outbox-04). As regras de transporte estão em
+`backend/docs/tasks/outbox/CONVENÇÕES_RABBITMQ.md`.
 
-## Transporte e campos
+O ms-notificacoes guarda uma cópia idêntica dos schemas em
+[`src/main/resources/contratos/notificacoes/`](../../src/main/resources/contratos/notificacoes).
+O `LeitorEventoNotificacaoTest` falha se a cópia divergir do backend. Mudar o contrato exige
+combinar com o backend, copiar os schemas novos e ajustar o consumidor **antes** de o backend publicar o formato novo.
 
-Corpo JSON UTF-8 (`application/json`), publicado na exchange direta
-`notificacoes`. A routing key é `email` ou `interna`, conforme a matriz.
-Os bindings estão em [topologia.json](../topologia.json).
+> Histórico: até a integração com o backend (ver [`../testes/integracao-backend.md`](../testes/integracao-backend.md)),
+> este documento descrevia uma proposta própria do ms. Ela usava `numero` como string, os tipos
+> `VIOLACAO_SLA`, `PRIMEIRO_POSICIONAMENTO` e `REATRIBUICAO`, e não tinha `relogio` nem
+> `encerramentoPrevistoEm`. Nenhuma mensagem real do backend passava nessa validação.
 
-| Campo | Tipo JSON | Regra |
+## Transporte
+
+- **Corpo:** JSON UTF-8 publicado na exchange direta `notificacoes`, com routing key `email` ou `interna`.
+- **Propriedades AMQP:** `message_id` = `eventoId`, `type` = tipo do evento, entrega persistente.
+- **Ordem das chaves:** não é garantida, porque o payload passa por uma coluna `jsonb`.
+- **Entrega:** pelo menos uma vez. O consumidor descarta repetições pelo `eventoId`.
+
+## Campos
+
+Todo campo do schema é obrigatório, e campo a mais é recusado (`additionalProperties: false`).
+
+| Campo | Tipo | Conteúdo |
 |---|---|---|
-| `eventoId` | string | Obrigatório, não vazio; identificador opaco gerado pelo app-principal |
-| `tipo` | string | Obrigatório; um dos nove valores exatos abaixo, sensível a maiúsculas |
-| `chamado` | objeto | Obrigatório |
-| `chamado.id` | string | Identificador interno obrigatório e não vazio; IDs numéricos devem ser serializados como string |
-| `chamado.numero` | string | Número legível obrigatório e não vazio, por exemplo `#1042` |
-| `titulo` | string | Título do chamado obrigatório e não vazio |
-| `destinatarios` | array de strings | Obrigatório e não vazio; nenhum elemento nulo, vazio ou só com espaços |
-| `textoPosicionamento` | string | Obrigatório e não vazio para `PRIMEIRO_POSICIONAMENTO`; ausente ou null nos demais |
+| `eventoId` | string `uuid` | Chave de idempotência; igual ao `message_id`. |
+| `tipo` | string | Um dos 8 tipos abaixo. |
+| `chamado.id` | string `uuid` | Identificador do chamado; usado no link do sino. |
+| `chamado.numero` | inteiro | Número legível. O ms exibe `#1042`. |
+| `titulo` | string não vazia | Título do chamado. |
+| `destinatarios` | lista não vazia | Canal `interna`: `sub` do Keycloak (uuid) de técnicos e gestores. Canal `email`: exatamente 1 e-mail, o de contato do cliente. |
+| `relogio` | `RESPOSTA`, `ATENDIMENTO_CAMPO` ou `RESOLUCAO` | Só em `VIOLACAO`: qual SLA foi violado. |
+| `textoPosicionamento` | string não vazia | Só em `POSICIONAMENTO`. |
+| `encerramentoPrevistoEm` | string `date-time` | Só em `AVISO_ENCERRAMENTO`: quando o chamado será validado automaticamente. |
 
-Nos eventos internos, cada destinatário é o `sub` opaco do Keycloak (não o ID
-local do técnico/gestor). Nos e-mails, cada elemento deve ser um endereço válido;
-o produtor informa o e-mail de contato do cliente. A lista permite representar
-destinatários múltiplos sem mudar o formato. O produtor seleciona os destinatários
-e envia cada um uma única vez; o consumidor não consulta usuários, preferências,
-contratos, banco nem API do app-principal para completar a mensagem.
+## Tipos
 
-## Matriz de eventos
+| `tipo` | Canal | Destinatários | O que o ms produz |
+|---|---|---|---|
+| `ATRIBUICAO` | interna | técnico atribuído ou reatribuído | sino |
+| `REMOCAO` | interna | técnico anterior, na reatribuição | sino |
+| `REABERTURA` | interna | técnico atribuído | sino |
+| `CONCLUSAO` | interna | gestores com a preferência ativa no chamado | sino |
+| `VIOLACAO` | interna | todos os gestores e o técnico atribuído | sino, citando o relógio violado |
+| `POSICIONAMENTO` | email | contato do cliente | e-mail com o texto do posicionamento |
+| `RESOLUCAO` | email | contato do cliente | e-mail |
+| `AVISO_ENCERRAMENTO` | email | contato do cliente | e-mail com a data do encerramento (horário de Brasília) |
 
-| `tipo` | Canal / fila | Destinatários definidos pelo produtor |
-|---|---|---|
-| `ATRIBUICAO` | interna / `notificacoes.interna` | Técnico atribuído |
-| `REATRIBUICAO` | interna / `notificacoes.interna` | Novo técnico ou substituto na transferência por inativação |
-| `REMOCAO` | interna / `notificacoes.interna` | Técnico anterior na reatribuição comum; aviso não concede acesso ao chamado |
-| `REABERTURA` | interna / `notificacoes.interna` | Técnico atualmente atribuído |
-| `CONCLUSAO` | interna / `notificacoes.interna` | Gestores que ativaram a preferência naquele chamado |
-| `VIOLACAO_SLA` | interna / `notificacoes.interna` | Todos os gestores e o técnico atribuído, se houver, independentemente da preferência |
-| `PRIMEIRO_POSICIONAMENTO` | email / `notificacoes.email` | E-mail de contato do cliente; inclui o texto registrado pelo gestor |
-| `RESOLUCAO` | email / `notificacoes.email` | E-mail de contato do cliente quando o chamado é marcado resolvido |
-| `AVISO_ENCERRAMENTO` | email / `notificacoes.email` | E-mail de contato do cliente, um dia útil antes da validação automática |
+A reatribuição não tem tipo próprio: o backend envia `ATRIBUICAO` para o técnico novo e
+`REMOCAO` para o anterior, cada um com seu `eventoId`.
 
-A conclusão pode produzir dois eventos distintos: `CONCLUSAO` para o sino e
-`RESOLUCAO` para e-mail, cada um com seu `eventoId`. Na reatribuição comum,
-o produtor emite `REATRIBUICAO` para o novo técnico e `REMOCAO` para o anterior.
-Na inativação (RN-135), emite somente `REATRIBUICAO` por chamado transferido,
-sem aviso de remoção ao técnico inativado. Se não houver destinatários para
-uma notificação, o produtor não publica uma lista vazia.
+## Validação
 
-## Identidade, publicação e evolução
+`LeitorEventoNotificacao.ler(payload)` valida o JSON com o schema do tipo, com `format`
+conferido (`formatAssertionsEnabled(true)`), e só então o mapeia para `EventoNotificacao`.
+No draft 2020-12, `format` é só anotação por padrão: sem essa opção, `"amanhã"` passaria
+como `date-time`.
 
-O app-principal gera o `eventoId` ao gravar o evento na outbox, na mesma
-transação do negócio. Republicações preservam o ID e o conteúdo. Para violação
-de SLA, o ID é determinístico a partir de **chamado + relógio + marco inicial
-vigente**. Exemplo ilustrativo: `sla:1042:ATENDIMENTO:2026-11-11T11:00:00Z`.
-O algoritmo/codificação exato pertence ao produtor; o consumidor trata o ID
-como opaco e nunca gera ou recalcula esse valor. Cada relógio violado produz
-seu próprio evento. Uma reabertura muda o marco dos relógios reiniciados,
-permitindo identificar uma nova violação sem repetir o aviso anterior.
+A sobrecarga `ler(payload, canal)` verifica também se o tipo pertence à fila. Toda falha
+lança `EventoInvalidoException`, sem payload nem causa, porque eles podem conter dados
+pessoais. O consumidor manda a mensagem direto para a DLQ, sem nova tentativa.
 
-O corpo atual não exige campos de relógio ou datas de SLA: a identidade já vem
-pronta e o aviso é de violação de SLA vinculada ao chamado. Conteúdo que exija
-identificar o relógio deverá ser alinhado com o produtor antes de ampliar o contrato.
+## Exemplos
 
-Campos desconhecidos, tipos desconhecidos, JSON malformado, valores com tipos
-JSON incorretos e campos obrigatórios ausentes/null/em branco são inválidos.
-Mudanças de nomes, tipos ou campos exigem alinhamento entre produtor e consumidor;
-não há conversão silenciosa de versões neste contrato.
+- [`exemplos/validos`](exemplos/validos): um payload por tipo, no formato do backend.
+- [`exemplos/invalidos`](exemplos/invalidos): campos ausentes, uuid inválido, `numero` como texto, tipo antigo, relógio desconhecido, data inválida, dois e-mails, campo a mais e outros casos.
 
-## Validação e exemplos executáveis
+Os dois conjuntos são lidos pelo `LeitorEventoNotificacaoTest` (`./mvnw test`). Os dados são fictícios.
 
-[`exemplos/validos`](exemplos/validos) contém um payload completo por tipo.
-`reatribuicao.json` representa a transferência ao substituto: o destinatário é
-somente `sub-tecnico-substituto`, sem evento de remoção ao inativado.
-[`exemplos/invalidos`](exemplos/invalidos) contém casos de campos ausentes,
-tipo desconhecido, destinatários incorretos e posicionamento sem texto.
-
-`LeitorEventoNotificacao.ler(payload)` desserializa e aplica Bean Validation,
-incluindo e-mail conforme o canal. A sobrecarga `ler(payload, canal)` verifica
-também o canal da fila. Falhas lançam `EventoInvalidoException`, sem payload,
-valor rejeitado ou causa contendo dados pessoais. Os consumidores futuros devem
-usar esse ponto de entrada antes de qualquer efeito e classificar a exceção como
-falha definitiva; o encaminhamento para DLQ pertence à MS-NOT-08.
-O DTO sozinho não executa validação automaticamente; a validação adicional do
-grupo de e-mail é responsabilidade do leitor.
-
-E-mail de contato e texto do posicionamento só trafegam na mensagem: não devem
-ser persistidos ou registrados em logs. A sobrescrita de `toString` do evento
-omite esses dados. Os exemplos são fictícios.
-
-Execute `./mvnw test` (Windows: `mvnw.cmd test`). A suíte lê os mesmos JSONs
-versionados da documentação, cobre todos os tipos/canais e verifica campos
-obrigatórios, validação condicional e rejeição de mensagens inválidas.
+E-mail de contato e texto do posicionamento só trafegam na mensagem: não são persistidos
+nem registrados em logs, e o `toString` do evento os omite.

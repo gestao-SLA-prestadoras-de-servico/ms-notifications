@@ -1,12 +1,12 @@
 {
-  "eventoId": "evento-8",
+  "eventoId": "0199b000-0000-7000-8000-000000000007",
   "tipo": "RESOLUCAO",
   "chamado": {
-    "id": "1042",
-    "numero": "#1042"
+    "id": "0199b100-0000-7000-8000-000000000042",
+    "numero": 1042
   },
-  "titulo": "Equipamento sem funcionamento",
+  "titulo": "Impressora parada",
   "destinatarios": [
-    "cliente@example.com"
+    "contato@boamassa.com.br"
   ]
 }

@@ -85,7 +85,7 @@ class RetryRabbitMQIT {
             processor.consumir(message, channel, CanalNotificacao.INTERNA, event -> {
                 instantes.add(System.nanoTime());
                 tentativas.add(((Number) message.getMessageProperties().getHeaders().getOrDefault(ProcessadorEntrega.TENTATIVA, 1)).intValue());
-                repository.saveAndFlush(new NotificacaoInterna("sub", event.eventoId(), event.tipo(), "1042", "#1042", "Teste", Instant.EPOCH));
+                repository.saveAndFlush(new NotificacaoInterna("sub", event.eventoId(), event.tipo(), "1042", "#1042", "Teste", null, Instant.EPOCH));
                 if (smtp != null) {
                     var mail = smtp.createMimeMessage();
                     try { mail.setFrom("teste@example.com"); mail.setRecipients(jakarta.mail.Message.RecipientType.TO, "cliente@example.com"); mail.setText("Teste SMTP"); }
@@ -206,7 +206,7 @@ class RetryRabbitMQIT {
 
     private byte[] publicar(boolean invalid) throws Exception {
         var node = (ObjectNode) JsonMapper.builder().build().readTree(Files.readString(Path.of("docs/contratos/exemplos/validos/atribuicao.json")));
-        node.put("eventoId", "retry-" + UUID.randomUUID());
+        node.put("eventoId", UUID.randomUUID().toString());
         byte[] body = (invalid ? "{}" : node.toString()).getBytes(StandardCharsets.UTF_8);
         rabbit.send(EXCHANGE, "interna", new Message(body));
         return body;

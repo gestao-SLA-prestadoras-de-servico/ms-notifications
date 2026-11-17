@@ -54,7 +54,7 @@ class AgendamentoRetencaoPostgresIT {
             assertThat(respondeu.await(5, TimeUnit.SECONDS)).isTrue();
         } finally { liberar.countDown(); }
         notificacoes.saveAndFlush(new NotificacaoInterna("sub", "evento", TipoEvento.ATRIBUICAO,
-                "chamado", "#1", "Titulo", AGORA.minus(Duration.ofDays(91))));
+                "chamado", "#1", "Titulo", null, AGORA.minus(Duration.ofDays(91))));
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(notificacoes.count()).isZero());
     }
 }

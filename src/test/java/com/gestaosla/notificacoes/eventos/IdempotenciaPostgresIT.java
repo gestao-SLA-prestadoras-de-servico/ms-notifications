@@ -63,7 +63,7 @@ class IdempotenciaPostgresIT {
 
     private void gravar(String event, String sub) {
         notificacoes.saveAndFlush(new NotificacaoInterna(sub, event, TipoEvento.ATRIBUICAO,
-                "1042", "#1042", "Manutenção", CLOCK.instant()));
+                "1042", "#1042", "Manutenção", null, CLOCK.instant()));
     }
 
     @Test

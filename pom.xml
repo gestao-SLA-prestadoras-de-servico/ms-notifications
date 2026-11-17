@@ -15,6 +15,8 @@
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-mail</artifactId></dependency>
         <dependency><groupId>org.eclipse.angus</groupId><artifactId>angus-mail</artifactId></dependency>
+        <!-- Mesma versão do backend, que gera os schemas de contratos/notificacoes. -->
+        <dependency><groupId>com.networknt</groupId><artifactId>json-schema-validator</artifactId><version>3.0.8</version></dependency>
         <dependency><groupId>io.github.resilience4j</groupId><artifactId>resilience4j-circuitbreaker</artifactId><version>2.4.0</version></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
         <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>

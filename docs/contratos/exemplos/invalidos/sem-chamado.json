@@ -1,8 +1,8 @@
 {
-  "eventoId": "evento-1",
+  "eventoId": "0199b000-0000-7000-8000-000000000001",
   "tipo": "ATRIBUICAO",
-  "titulo": "Equipamento sem funcionamento",
+  "titulo": "Impressora parada",
   "destinatarios": [
-    "sub-tecnico-atribuido"
+    "0199a000-0000-7000-8000-000000000001"
   ]
 }

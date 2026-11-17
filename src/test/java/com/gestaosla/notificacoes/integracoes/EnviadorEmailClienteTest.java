@@ -56,7 +56,7 @@ class EnviadorEmailClienteTest {
     }
 
     private EventoNotificacao evento() {
-        return new EventoNotificacao("evento", TipoEvento.RESOLUCAO, new ChamadoEvento("id", "#1042"), "Manutenção",
-                List.of("cliente1@example.com", "cliente1@example.com", "cliente2@example.com"), null);
+        return new EventoNotificacao("evento", TipoEvento.RESOLUCAO, new ChamadoEvento("id", 1042), "Manutenção",
+                List.of("cliente1@example.com", "cliente1@example.com", "cliente2@example.com"), null, null, null);
     }
 }

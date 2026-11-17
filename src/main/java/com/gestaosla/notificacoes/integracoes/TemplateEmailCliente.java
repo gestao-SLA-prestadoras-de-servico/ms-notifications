@@ -2,19 +2,26 @@ package com.gestaosla.notificacoes.integracoes;
 
 import com.gestaosla.notificacoes.eventos.EventoInvalidoException;
 import com.gestaosla.notificacoes.eventos.EventoNotificacao;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
 @Component
 public class TemplateEmailCliente {
+    // ponytail: fuso fixo de Brasília; parametrizar se houver cliente em outro fuso.
+    private static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy 'às' HH:mm")
+            .withZone(ZoneId.of("America/Sao_Paulo"));
+
     public Conteudo compor(EventoNotificacao evento) {
-        String chamado = "chamado " + evento.chamado().numero() + " — " + evento.titulo();
+        String chamado = "chamado " + evento.chamado().exibicao() + " — " + evento.titulo();
         String chamadoHtml = escapar(chamado);
         String assunto;
         String texto;
         String html;
         switch (evento.tipo()) {
-            case PRIMEIRO_POSICIONAMENTO -> {
+            case POSICIONAMENTO -> {
                 assunto = "Primeiro posicionamento";
                 texto = "Registramos o primeiro posicionamento do " + chamado + ".\n\n" + evento.textoPosicionamento();
                 html = "<p>Registramos o primeiro posicionamento do " + chamadoHtml + ".</p><p>"
@@ -27,13 +34,16 @@ public class TemplateEmailCliente {
             }
             case AVISO_ENCERRAMENTO -> {
                 assunto = "Validação automática próxima";
-                texto = "O " + chamado + " está próximo da validação e do encerramento automáticos.\n\nConfira a solução no sistema. Caso discorde, reabra o chamado antes do encerramento.";
-                html = "<p>O " + chamadoHtml + " está próximo da validação e do encerramento automáticos.</p><p>Confira a solução no sistema. Caso discorde, reabra o chamado antes do encerramento.</p>";
+                String quando = DATA_HORA.format(evento.encerramentoPrevistoEm());
+                texto = "O " + chamado + " será validado e encerrado automaticamente em " + quando
+                        + " (horário de Brasília).\n\nConfira a solução no sistema. Caso discorde, reabra o chamado antes do encerramento.";
+                html = "<p>O " + chamadoHtml + " será validado e encerrado automaticamente em " + escapar(quando)
+                        + " (horário de Brasília).</p><p>Confira a solução no sistema. Caso discorde, reabra o chamado antes do encerramento.</p>";
             }
             default -> throw new EventoInvalidoException();
         }
         // Dados do usuário não podem introduzir cabeçalhos adicionais no assunto.
-        assunto = ("[FlowSLA] " + assunto + " — " + evento.chamado().numero() + " — " + evento.titulo())
+        assunto = ("[FlowSLA] " + assunto + " — " + evento.chamado().exibicao() + " — " + evento.titulo())
                 .replaceAll("[\\r\\n]+", " ");
         return new Conteudo(assunto, "Olá,\n\n" + texto + "\n\nEquipe FlowSLA.",
                 "<!doctype html><html lang=\"pt-BR\"><body><p>Olá,</p>" + html + "<p>Equipe FlowSLA.</p></body></html>");
