@@ -1,0 +1,13 @@
+{
+  "eventoId": "0199b000-0000-7000-8000-000000000008",
+  "tipo": "AVISO_ENCERRAMENTO",
+  "chamado": {
+    "id": "0199b100-0000-7000-8000-000000000042",
+    "numero": 1042
+  },
+  "titulo": "Impressora parada",
+  "destinatarios": [
+    "contato@boamassa.com.br"
+  ],
+  "encerramentoPrevistoEm": "amanhã"
+}

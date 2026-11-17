@@ -1,0 +1,141 @@
+[ {
+  "pendentes" : 40.0,
+  "tempoMs" : 216,
+  "entregas" : 0.0,
+  "confirmados" : 0,
+  "cpuPorInstancia" : [ 0.625, 0.175, 0.125, 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 40.0,
+  "tempoMs" : 591,
+  "entregas" : 0.0,
+  "confirmados" : 0,
+  "cpuPorInstancia" : [ 0.275, 0.1, 0.3, 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 36.0,
+  "tempoMs" : 963,
+  "entregas" : 4.0,
+  "confirmados" : 3,
+  "cpuPorInstancia" : [ 0.425, 0.25, 0.275, 0.36666666666666664 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 36.0,
+  "tempoMs" : 1392,
+  "entregas" : 4.0,
+  "confirmados" : 3,
+  "cpuPorInstancia" : [ 0.15, 0.2, 0.1, 0.14 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 32.0,
+  "tempoMs" : 1718,
+  "entregas" : 8.0,
+  "confirmados" : 6,
+  "cpuPorInstancia" : [ 0.275, 0.4, 0.3, 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 32.0,
+  "tempoMs" : 2078,
+  "entregas" : 8.0,
+  "confirmados" : 6,
+  "cpuPorInstancia" : [ 0.13333333333333333, 0.15, 0.13333333333333333, 0.15 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 32.0,
+  "tempoMs" : 2886,
+  "entregas" : 8.0,
+  "confirmados" : 6,
+  "cpuPorInstancia" : [ 0.175, 0.16666666666666666, 0.1, 0.15 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 28.0,
+  "tempoMs" : 3247,
+  "entregas" : 12.0,
+  "confirmados" : 10,
+  "cpuPorInstancia" : [ 0.1125, 0.14285714285714285, 0.11428571428571428, 0.3 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 23.0,
+  "tempoMs" : 3622,
+  "entregas" : 17.0,
+  "confirmados" : 13,
+  "cpuPorInstancia" : [ 0.4, 0.125, 0.225, 0.225 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 23.0,
+  "tempoMs" : 3983,
+  "entregas" : 17.0,
+  "confirmados" : 13,
+  "cpuPorInstancia" : [ 0.225, 0.2, 0.16666666666666666, 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 19.0,
+  "tempoMs" : 4369,
+  "entregas" : 21.0,
+  "confirmados" : 17,
+  "cpuPorInstancia" : [ 0.1, 0.4666666666666667, 0.225, 0.4 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 18.0,
+  "tempoMs" : 4734,
+  "entregas" : 22.0,
+  "confirmados" : 17,
+  "cpuPorInstancia" : [ 0.275, 0.2, 0.2, 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 16.0,
+  "tempoMs" : 5100,
+  "entregas" : 24.0,
+  "confirmados" : 21,
+  "cpuPorInstancia" : [ 0.13333333333333333, 0.125, 0.13333333333333333, 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 13.0,
+  "tempoMs" : 5474,
+  "entregas" : 27.0,
+  "confirmados" : 21,
+  "cpuPorInstancia" : [ 0.2, 0.26666666666666666, 0.15, 0.225 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 13.0,
+  "tempoMs" : 5883,
+  "entregas" : 27.0,
+  "confirmados" : 24,
+  "cpuPorInstancia" : [ 0.15, 0.06666666666666667, 0.075, 0.16666666666666666 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 8.0,
+  "tempoMs" : 6242,
+  "entregas" : 32.0,
+  "confirmados" : 25,
+  "cpuPorInstancia" : [ 0.15, 0.175, 0.2, 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 8.0,
+  "tempoMs" : 6584,
+  "entregas" : 32.0,
+  "confirmados" : 28,
+  "cpuPorInstancia" : [ 0.1, 0.05, 0.06666666666666667, 0.1 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 3.0,
+  "tempoMs" : 6936,
+  "entregas" : 37.0,
+  "confirmados" : 29,
+  "cpuPorInstancia" : [ 0.15, 0.2, 0.125, 0.2 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 3.0,
+  "tempoMs" : 7295,
+  "entregas" : 37.0,
+  "confirmados" : 29,
+  "cpuPorInstancia" : [ 0.13333333333333333, 0.1, 0.16666666666666666, 0.075 ],
+  "falhas" : 0.0
+}, {
+  "pendentes" : 0.0,
+  "tempoMs" : 7648,
+  "entregas" : 40.0,
+  "confirmados" : 32,
+  "cpuPorInstancia" : [ 0.16666666666666666, 0.075, 0.1, 0.1 ],
+  "falhas" : 0.0
+} ]

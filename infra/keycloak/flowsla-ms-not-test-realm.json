@@ -1,0 +1,69 @@
+{
+  "realm": "flowsla-ms-not-test",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 300,
+  "roles": {"realm": [{"name": "TECNICO"}, {"name": "GESTOR"}, {"name": "CLIENTE"}]},
+  "clients": [
+    {
+      "clientId": "ms-not-test",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": ["basic", "roles"],
+      "protocolMappers": [{
+        "name": "audience-ms-notificacoes",
+        "protocol": "openid-connect",
+        "protocolMapper": "oidc-audience-mapper",
+        "config": {"included.custom.audience": "ms-notificacoes", "access.token.claim": "true", "id.token.claim": "false"}
+      }]
+    },
+    {
+      "clientId": "audiencia-incorreta",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": ["basic", "roles"],
+      "protocolMappers": [{
+        "name": "audience-app-principal",
+        "protocol": "openid-connect",
+        "protocolMapper": "oidc-audience-mapper",
+        "config": {"included.custom.audience": "app-principal", "access.token.claim": "true", "id.token.claim": "false"}
+      }]
+    }
+  ],
+  "users": [
+    {
+      "username": "tecnico",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Tecnico",
+      "lastName": "Teste",
+      "email": "tecnico@example.test",
+      "credentials": [{"type": "password", "value": "${IT_KEYCLOAK_PASSWORD}", "temporary": false}],
+      "realmRoles": ["TECNICO"]
+    },
+    {
+      "username": "gestor",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Gestor",
+      "lastName": "Teste",
+      "email": "gestor@example.test",
+      "credentials": [{"type": "password", "value": "${IT_KEYCLOAK_PASSWORD}", "temporary": false}],
+      "realmRoles": ["GESTOR"]
+    },
+    {
+      "username": "cliente",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Cliente",
+      "lastName": "Teste",
+      "email": "cliente@example.test",
+      "credentials": [{"type": "password", "value": "${IT_KEYCLOAK_PASSWORD}", "temporary": false}],
+      "realmRoles": ["CLIENTE"]
+    }
+  ]
+}

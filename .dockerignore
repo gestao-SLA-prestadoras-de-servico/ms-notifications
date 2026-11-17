@@ -1,0 +1,11 @@
+*
+!pom.xml
+!src/
+!src/**
+!docs/
+!docs/contratos/
+!docs/contratos/**
+!docs/openapi.json
+!infra/
+!infra/keycloak/
+!infra/keycloak/**

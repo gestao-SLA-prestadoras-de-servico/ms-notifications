@@ -1,0 +1,41 @@
+[ {
+  "memoriaBytes" : 805306368,
+  "imagem" : "postgres:17-alpine",
+  "nanoCpus" : 2000000000,
+  "imageId" : "sha256:d4bb0a8c1b7bb2e29f976d099e7bfb9a5d8858cffe9e46b35cd302cd1f1f8168"
+}, {
+  "memoriaBytes" : 805306368,
+  "imagem" : "rabbitmq:4.1-management-alpine",
+  "nanoCpus" : 1000000000,
+  "imageId" : "sha256:54ef5ff505352c1beef05a97ee9bd6ab95b3559a76629ba0119b1d63d8d6e4b2"
+}, {
+  "memoriaBytes" : 268435456,
+  "imagem" : "axllent/mailpit:v1.27",
+  "nanoCpus" : 1000000000,
+  "imageId" : "sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68"
+}, {
+  "memoriaBytes" : 134217728,
+  "imagem" : "ghcr.io/shopify/toxiproxy:2.13.0",
+  "nanoCpus" : 500000000,
+  "imageId" : "sha256:5d3dae09bc185dcc5ff6cf43abf6062a4a720aff0c4306a471e773acdcd107aa"
+}, {
+  "memoriaBytes" : 805306368,
+  "imagem" : "eclipse-temurin:21-jre-alpine",
+  "nanoCpus" : 1000000000,
+  "imageId" : "sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474"
+}, {
+  "memoriaBytes" : 805306368,
+  "imagem" : "eclipse-temurin:21-jre-alpine",
+  "nanoCpus" : 1000000000,
+  "imageId" : "sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474"
+}, {
+  "memoriaBytes" : 805306368,
+  "imagem" : "eclipse-temurin:21-jre-alpine",
+  "nanoCpus" : 1000000000,
+  "imageId" : "sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474"
+}, {
+  "memoriaBytes" : 805306368,
+  "imagem" : "eclipse-temurin:21-jre-alpine",
+  "nanoCpus" : 1000000000,
+  "imageId" : "sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474"
+} ]

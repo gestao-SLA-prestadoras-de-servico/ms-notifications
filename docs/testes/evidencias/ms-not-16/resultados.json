@@ -1,0 +1,71 @@
+{
+  "inicio" : "2026-11-12T23:45:22.052699200Z",
+  "eventosUnicos" : 32,
+  "entregas" : 40,
+  "sha256Carga" : "76b342143a7624d4e4d79365885aafb3e824f4f659cc1120e0dcf15beb3832d0",
+  "latenciaDownstreamMs" : 100,
+  "jitterMs" : 0,
+  "cpuPorInstancia" : 1,
+  "memoriaMiBPorInstancia" : 768,
+  "heapMaxMiB" : 384,
+  "concorrenciaPorCanal" : 1,
+  "prefetch" : 1,
+  "aquecimentoEventos" : 8,
+  "amostragemMs" : 250,
+  "sha256Jar" : "9457c56a66128c0873af3e8d961a757de966406f157adbcad89586d096becbbb",
+  "ambienteDocker" : {
+    "memoriaBytes" : 8182255616,
+    "cpus" : 12,
+    "sistema" : "Docker Desktop",
+    "versao" : "29.9.2"
+  },
+  "resultados" : [ {
+    "repeticao" : 1,
+    "instancias" : 1,
+    "drenagemMs" : 24494,
+    "vazaoEmailsPorSegundo" : 1.306442394055687,
+    "falhas" : 0.0,
+    "emailsCapturados" : 32,
+    "duplicacoesSmtp" : 0,
+    "marcadoresEmail" : 32,
+    "reentregasDescartadas" : 8.0,
+    "latenciaInternaObservadaMs" : 140,
+    "processadosIncluindoAquecimentoPorInstancia" : [ 40.0 ]
+  }, {
+    "repeticao" : 1,
+    "instancias" : 4,
+    "drenagemMs" : 7648,
+    "vazaoEmailsPorSegundo" : 4.184100418410042,
+    "falhas" : 0.0,
+    "emailsCapturados" : 32,
+    "duplicacoesSmtp" : 0,
+    "marcadoresEmail" : 32,
+    "reentregasDescartadas" : 8.0,
+    "latenciaInternaObservadaMs" : 216,
+    "processadosIncluindoAquecimentoPorInstancia" : [ 11.0, 9.0, 10.0, 10.0 ]
+  }, {
+    "repeticao" : 2,
+    "instancias" : 4,
+    "drenagemMs" : 7265,
+    "vazaoEmailsPorSegundo" : 4.40467997247075,
+    "falhas" : 0.0,
+    "emailsCapturados" : 32,
+    "duplicacoesSmtp" : 0,
+    "marcadoresEmail" : 32,
+    "reentregasDescartadas" : 8.0,
+    "latenciaInternaObservadaMs" : 198,
+    "processadosIncluindoAquecimentoPorInstancia" : [ 10.0, 10.0, 10.0, 10.0 ]
+  }, {
+    "repeticao" : 2,
+    "instancias" : 1,
+    "drenagemMs" : 24204,
+    "vazaoEmailsPorSegundo" : 1.3220955214014212,
+    "falhas" : 0.0,
+    "emailsCapturados" : 32,
+    "duplicacoesSmtp" : 0,
+    "marcadoresEmail" : 32,
+    "reentregasDescartadas" : 8.0,
+    "latenciaInternaObservadaMs" : 97,
+    "processadosIncluindoAquecimentoPorInstancia" : [ 40.0 ]
+  } ]
+}

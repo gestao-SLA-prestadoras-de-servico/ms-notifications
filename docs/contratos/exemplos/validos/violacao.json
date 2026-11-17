@@ -1,0 +1,14 @@
+{
+  "eventoId": "0199b000-0000-7000-8000-000000000005",
+  "tipo": "VIOLACAO",
+  "chamado": {
+    "id": "0199b100-0000-7000-8000-000000000042",
+    "numero": 1042
+  },
+  "titulo": "Impressora parada",
+  "destinatarios": [
+    "0199a000-0000-7000-8000-000000000007",
+    "0199a000-0000-7000-8000-000000000001"
+  ],
+  "relogio": "ATENDIMENTO_CAMPO"
+}

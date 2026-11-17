@@ -1,0 +1,100 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/flowsla}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/flowsla/protocol/openid-connect/certs}
+  application:
+    name: ms-notificacoes
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    clean-disabled: true
+    validate-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+      retry:
+        enabled: false
+    listener:
+      simple:
+        acknowledge-mode: manual
+        retry:
+          enabled: false
+      direct:
+        acknowledge-mode: manual
+        retry:
+          enabled: false
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS_ENABLED:false}
+      mail.smtp.starttls.required: ${MAIL_STARTTLS_ENABLED:false}
+      mail.smtp.connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:5000}
+      mail.smtp.timeout: ${MAIL_READ_TIMEOUT_MS:5000}
+      mail.smtp.writetimeout: ${MAIL_WRITE_TIMEOUT_MS:5000}
+logging:
+  level:
+    # O container pode incluir o corpo de mensagens no WARN durante seu encerramento.
+    org.springframework.amqp.rabbit.listener: ERROR
+server:
+  port: ${SERVER_PORT:8081}
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+notificacoes:
+  smtp:
+    enabled: ${SMTP_CIRCUIT_BREAKER_ENABLED:true}
+    window-size: ${SMTP_CIRCUIT_WINDOW_SIZE:1}
+    minimum-calls: ${SMTP_CIRCUIT_MIN_CALLS:1}
+    failure-rate: ${SMTP_CIRCUIT_FAILURE_RATE:100}
+    open-wait: ${SMTP_CIRCUIT_OPEN_WAIT:30s}
+    probe-interval: ${SMTP_PROBE_INTERVAL:5s}
+  retencao:
+    cron: ${RETENCAO_CRON:0 0 3 * * *}
+    zone: ${RETENCAO_ZONE:UTC}
+    tamanho-lote: ${RETENCAO_TAMANHO_LOTE:500}
+  seguranca:
+    audience: ${KEYCLOAK_AUDIENCE:ms-notificacoes}
+    cors-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  retry:
+    exchange: ${NOTIFICACOES_RETRY_EXCHANGE:notificacoes.retry}
+    dlx: ${NOTIFICACOES_DLX:notificacoes.dlx}
+    confirm-timeout-ms: ${RETRY_CONFIRM_TIMEOUT_MS:5000}
+  filas:
+    email: ${NOTIFICACOES_FILA_EMAIL:notificacoes.email}
+    interna: ${NOTIFICACOES_FILA_INTERNA:notificacoes.interna}
+  consumidor-interno:
+    enabled: ${CONSUMIDOR_INTERNO_ENABLED:true}
+  consumidor-email:
+    enabled: ${CONSUMIDOR_EMAIL_ENABLED:true}
+  email:
+    remetente: ${MAIL_FROM:notificacoes@flowsla.local}
+  processamento:
+    lock-timeout: ${PROCESSAMENTO_LOCK_TIMEOUT:10s}

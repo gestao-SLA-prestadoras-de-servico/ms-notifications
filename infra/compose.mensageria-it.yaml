@@ -1,0 +1,17 @@
+# Use junto a compose.yaml e infra/compose.postgres-it.yaml.
+services:
+  postgres-it:
+    command: [-B, -Pmensageria-it, verify]
+    environment:
+      IT_RABBITMQ_HOST: rabbitmq
+      IT_RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:?Defina RABBITMQ_USERNAME no .env}
+      IT_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Defina RABBITMQ_PASSWORD no .env}
+      IT_RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      IT_MAIL_HOST: mailpit
+      IT_MAIL_PORT: 1025
+      IT_MAILPIT_URL: http://mailpit:8025
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
