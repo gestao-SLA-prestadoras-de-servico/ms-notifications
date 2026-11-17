@@ -1,5 +1,7 @@
 # MS-NOT-05 — Validação com o checkout do backend
 
+> **Desatualizado (17/11/2026).** O backend passou a ter outbox, publicador e contrato próprios. A integração foi testada de ponta a ponta em [integracao-backend.md](integracao-backend.md).
+
 Data local: 11/11/2026.
 
 Repositórios inspecionados:
