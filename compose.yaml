@@ -82,8 +82,8 @@ services:
       RETRY_MULTIPLIER: ${RETRY_MULTIPLIER:-2}
       RETRY_MAX_INTERVAL_MS: ${RETRY_MAX_INTERVAL_MS:-30000}
     volumes:
-      - ./infra/rabbitmq/generate_definitions.py:/generate_definitions.py:ro
-      - ./docs/topologia.json:/topologia.json:ro
+      - ./infra/rabbitmq/generate_definitions.py:/generate_definitions.py:ro,z
+      - ./docs/topologia.json:/topologia.json:ro,z
       - rabbitmq-definitions:/definitions
     command: [python, /generate_definitions.py]
     restart: "no"
@@ -99,7 +99,7 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
       - rabbitmq-definitions:/definitions:ro
-      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./infra/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro,z
     depends_on:
       rabbitmq-init:
         condition: service_completed_successfully

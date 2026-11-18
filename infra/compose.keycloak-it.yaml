@@ -9,7 +9,7 @@ services:
       KC_HOSTNAME: http://keycloak:8080
       IT_KEYCLOAK_PASSWORD: ${IT_KEYCLOAK_PASSWORD:?Gere uma senha temporária para o teste}
     volumes:
-      - ./infra/keycloak/flowsla-ms-not-test-realm.json:/opt/keycloak/data/import/flowsla-ms-not-test-realm.json:ro
+      - ./infra/keycloak/flowsla-ms-not-test-realm.json:/opt/keycloak/data/import/flowsla-ms-not-test-realm.json:ro,z
     healthcheck:
       test: [CMD-SHELL, "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
       interval: 5s
